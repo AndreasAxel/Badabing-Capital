@@ -1,0 +1,79 @@
+import numpy as np
+from options.payoff import european_payoff
+
+
+def lsmc(t, X, k, r, payoff_func, type, deg):
+    """
+    Longstaff-Schwartz Monte Carlo method for pricing an American option.
+
+    :param t:               Time steps
+    :param X:               Simulated paths
+    :param k:               Strike
+    :param r:               Risk free rate
+    :param payoff_func:     Payoff function to be called
+    :param type:            Type of option
+    :param deg:             Degree of the polynomial
+    :return:                Price of the american option
+    """
+
+    assert np.ndim(t) == 1, "Time steps must be a 1-dimensional array."
+    assert np.ndim(X) == 2, "The passed simulations `X` mush be a 2-dimensional numpy-array."
+    assert len(X) == len(t), "The length of the passed simulations `X` and time steps `t` must be of same length."
+
+    M = len(t) - 1
+    N = np.shape(X)[1]
+
+    dt = np.diff(t)
+
+    # Initiate
+    discount_factor = np.exp(-r * dt)
+    payoff = payoff_func(X, k, type)
+    stopping_rule = np.full((M+1, N), False)
+    cashflow = np.full((M+1, N), np.nan)
+
+    stopping_rule[M: ] = payoff[M, :] > 0
+    cashflow[M, :] = payoff[M, :]
+
+    for j in range(M-1, -1, -1):
+        itm = payoff[j, :] > 0
+
+        # Perform regression
+        coeff = np.polyfit(x=X[j, itm], y=cashflow[j+1, itm] * discount_factor[-j], deg=deg)
+
+        # Determine stopping rule by
+        # comparing the value of exercising with the expected value of continuation
+        EV_cont = np.polyval(p=coeff, x=X[j, itm])
+        exercise = payoff[j, itm]
+
+        stopping_rule[j, itm] = exercise > EV_cont
+
+        # Update cash-flow matrix
+        cashflow[j, :] = stopping_rule[j, :] * payoff[j, :]
+
+    # Format stopping rule and cashflow-matrix
+    stopping_rule = np.cumsum(np.cumsum(stopping_rule, axis=0), axis=0) == 1
+    cashflow = stopping_rule * cashflow
+
+    cashflow = cashflow[1:, :]
+
+    # Calculate price
+    price = np.mean(cashflow.T @ np.cumprod(discount_factor))
+
+    return price
+
+
+if __name__ == '__main__':
+    # Example from the Longstaff-Schwartz article
+    X = np.array((
+        [1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+        [1.09, 1.16, 1.22, 0.93, 1.11, 0.76, 0.92, 0.88],
+        [1.08, 1.26, 1.07, 0.97, 1.56, 0.77, 0.84, 1.22],
+        [1.34, 1.54, 1.03, 0.92, 1.52, 0.90, 1.01, 1.34]
+    ))
+    k = 1.10
+    r = 0.06
+    t = np.linspace(start=0, stop=3, num=4)
+    type = 'PUT'
+    deg = 2
+
+    print(lsmc(t=t, X=X, k=k, r=r, payoff_func=european_payoff, type=type, deg=deg))
