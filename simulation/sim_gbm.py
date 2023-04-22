@@ -20,6 +20,8 @@ def sim_gbm(t, x0, N, mu, sigma, seed=None):
     assert np.ndim(t) == 1, 'Time steps must be a 1-dimensional array.'
     M = len(t) - 1
 
+    dt = np.diff(t)
+
     rng = np.random.default_rng(seed=seed)
     Z = rng.standard_normal(size=(M, N))
 
@@ -27,8 +29,7 @@ def sim_gbm(t, x0, N, mu, sigma, seed=None):
     x[0] = x0 * np.ones(shape=(1, N))
 
     for j in range(len(t[1:])):
-        dt = t[j+1] - t[j]
-        x[j+1] = x[j] * np.exp((mu-0.5*sigma**2)*dt + sigma*np.sqrt(dt)*Z[j])
+        x[j+1] = x[j] * np.exp((mu-0.5*sigma**2)*dt[j] + sigma*np.sqrt(dt[j])*Z[j])
 
     return x
 
@@ -42,7 +43,7 @@ if __name__ == '__main__':
     N = 5
     mu = 0.07
     sigma = 0.2
-    seed = None
+    seed = 1
 
     # Equidistant time steps
     t = np.linspace(start=t0, stop=T, num=M+1, endpoint=True)
