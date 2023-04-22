@@ -1,5 +1,5 @@
 import numpy as np
-from options.payoff import european_payoff
+from application.options.payoff import european_payoff
 
 
 def lsmc(t, X, k, r, payoff_func, type, deg):
