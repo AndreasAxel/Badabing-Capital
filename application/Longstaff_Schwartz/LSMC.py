@@ -1,6 +1,6 @@
 import numpy as np
-from options.payoff import european_payoff
-from simulation.sim_gbm import sim_gbm
+from application.options.payoff import european_payoff
+from application.simulation.sim_gbm import sim_gbm
 
 
 def lsmc(t, X, k, r, payoff_func, type, deg):
@@ -34,7 +34,7 @@ def lsmc(t, X, k, r, payoff_func, type, deg):
     stopping_rule = np.full((M, N), False)
     cashflow = np.full((M, N), np.nan)
 
-    stopping_rule[M-1: ] = payoff[M, :] > 0
+    stopping_rule[M-1:, ] = payoff[M, :] > 0
     cashflow[M-1, :] = payoff[M, :]
 
     for j in range(M-1, 0, -1):
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     print("Price Longstaff-Schwarz: ", lsmc(t=t, X=X, k=k, r=r, payoff_func=european_payoff, type=type, deg=deg))
 
 
-    # simulating with GBM
+    # Simulating with GBM
     x0 = 1
     t0 = 0.0
     T = 1.0
