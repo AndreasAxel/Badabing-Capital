@@ -29,6 +29,8 @@ def lsmc(t, X, k, r, payoff_func, type, deg):
     # Initiate
     discount_factor = np.exp(-r * dt)
     payoff = payoff_func(X, k, type)
+
+    # formatting stopping rule and cashflow-matrix
     stopping_rule = np.full((M, N), False)
     cashflow = np.full((M, N), np.nan)
 
