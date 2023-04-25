@@ -43,7 +43,7 @@ def lsmc(t, X, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
         itm = payoff[j, :] > 0
 
         # Fit function for expected value of continuation
-        fit = fit_func(X[j, itm], cashflow[j, itm] * discount_factor[-j], *args, **kwargs)
+        fit = fit_func(X[j, itm], cashflow[j, itm] * discount_factor[j], *args, **kwargs)
 
         # Determine stopping rule by
         # comparing the value of exercising with the predicted (expected) value of continuation
