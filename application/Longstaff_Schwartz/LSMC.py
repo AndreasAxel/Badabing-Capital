@@ -32,6 +32,7 @@ def lsmc(X, t, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
     V = np.zeros_like(payoff)
     V[M, :] = payoff[M, :]
     stopping_rule = np.zeros_like(X).astype(dtype=bool)
+    stopping_rule[M, :] = payoff[M, :] > 0
 
     for j in range(M - 1, 0, -1):
         # Fit prediction model
@@ -41,14 +42,12 @@ def lsmc(X, t, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
         EV_cont = pred_func(X[j, :], fit)
 
         # Determine whether is it optimal to exercise or continue. Update values accordingly
-        stopping_rule[j, :] = payoff[j, :] > EV_cont
+        stopping_rule[j, :] = payoff[j, :] > np.maximum(EV_cont, 0.0)
         V[j, :] = np.where(stopping_rule[j, :],
-                           payoff[j, :], V[j + 1, :] * df[j]) # Exercise / Continuation
+                           payoff[j, :], V[j + 1, :] * df[j])  # Exercise / Continuation
 
     # Format stopping rule
-    # TODO fix stopping rule
-    #stopping_rule = np.cumsum(np.cumsum(stopping_rule[1:], axis=0), axis=0) == 1
-    #print(stopping_rule.T.astype(int))
+    stopping_rule = np.cumsum(np.cumsum(stopping_rule[1:], axis=0), axis=0) == 1
 
     return np.mean(V[1, :] * df[0])
 
@@ -60,7 +59,6 @@ if __name__ == '__main__':
     t = np.linspace(start=0, stop=3, num=4)
     type = 'PUT'
     deg = 2
-
 
     X = np.array((
         [1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
@@ -90,7 +88,6 @@ if __name__ == '__main__':
                                                                   type=type, fit_func=fit_laguerre_poly,
                                                                   pred_func=pred_laguerre_poly,
                                                                   deg=deg))
-
 
     # Use Neural Network
     print("Price with Sequentical Neural Network =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
