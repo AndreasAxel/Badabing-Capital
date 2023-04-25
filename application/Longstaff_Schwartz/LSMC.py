@@ -4,7 +4,7 @@ from application.simulation.sim_gbm import sim_gbm
 from application.Longstaff_Schwartz.utils.fit_predict import *
 
 
-def lsmc(t, X, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
+def lsmc(X, t, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
     """
     Longstaff-Schwartz Monte Carlo method for pricing an American option.
 
@@ -24,45 +24,33 @@ def lsmc(t, X, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
     assert len(X) == len(t), "The length of the passed simulations `X` and time steps `t` must be of same length."
 
     M = len(t) - 1
-    N = np.shape(X)[1]
-
     dt = np.diff(t)
+    df = np.exp(-r * dt)
 
-    # Initiate
-    discount_factor = np.exp(-r * dt)
+    # Initialize objects
     payoff = payoff_func(X, K, type)
+    V = np.zeros_like(payoff)
+    V[M, :] = payoff[M, :]
+    stopping_rule = np.zeros_like(X).astype(dtype=bool)
 
-    # formatting stopping rule and cashflow-matrix
-    stopping_rule = np.full((M, N), False)
-    cashflow = np.full((M, N), np.nan)
+    for j in range(M - 1, 0, -1):
+        # Fit prediction model
+        fit = fit_func(X[j, :], V[j + 1, :] * df[j], *args, **kwargs)
 
-    stopping_rule[M-1:, ] = payoff[M, :] > 0
-    cashflow[M-1, :] = payoff[M, :]
+        # Predict value of continuation
+        EV_cont = pred_func(X[j, :], fit)
 
-    for j in range(M-1, 0, -1):
-        itm = payoff[j, :] > -np.inf
+        # Determine whether is it optimal to exercise or continue. Update values accordingly
+        stopping_rule[j, :] = payoff[j, :] > EV_cont
+        V[j, :] = np.where(stopping_rule[j, :],
+                           payoff[j, :], V[j + 1, :] * df[j]) # Exercise / Continuation
 
-        # Fit function for expected value of continuation
-        fit = fit_func(X[j, itm], cashflow[j, itm] * discount_factor[j], *args, **kwargs)
+    # Format stopping rule
+    # TODO fix stopping rule
+    #stopping_rule = np.cumsum(np.cumsum(stopping_rule[1:], axis=0), axis=0) == 1
+    #print(stopping_rule.T.astype(int))
 
-        # Determine stopping rule by
-        # comparing the value of exercising with the predicted (expected) value of continuation
-        EV_cont = pred_func(X[j, itm], fit, *args, **kwargs)
-        exercise = payoff[j, itm]
-
-        stopping_rule[j-1, itm] = exercise > EV_cont
-
-        # Update cash-flow matrix
-        cashflow[j-1, :] = stopping_rule[j-1, :] * payoff[j, :]
-
-    # Format stopping rule and cashflow-matrix
-    stopping_rule = np.cumsum(np.cumsum(stopping_rule, axis=0), axis=0) == 1
-    cashflow = stopping_rule * cashflow
-
-    # Calculate price
-    price = np.mean(cashflow.T @ np.cumprod(discount_factor))
-
-    return price
+    return np.mean(V[1, :] * df[0])
 
 
 if __name__ == '__main__':
@@ -83,7 +71,6 @@ if __name__ == '__main__':
     print("Price Longstaff-Schwarz: ", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
                                             fit_func=fit_poly, pred_func=pred_poly, deg=deg))
 
-
     # Simulating with GBM
     x0 = 36
     K = 40
@@ -98,13 +85,12 @@ if __name__ == '__main__':
     t = np.linspace(start=t0, stop=T, num=M+1, endpoint=True)
     X = sim_gbm(t=t, x0=x0, N=N, mu=r, sigma=sigma, seed=seed)
 
-    print(np.exp(-r*T) * np.mean(european_payoff(X[-1], K, type)))
-
-
-    for deg in range(7):
+    for deg in range(10):
         print('deg =', deg, ": Price with GBM simulation =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff,
-                                                                  type=type, fit_func=fit_laguerre_poly, pred_func=pred_laguerre_poly,
+                                                                  type=type, fit_func=fit_laguerre_poly,
+                                                                  pred_func=pred_laguerre_poly,
                                                                   deg=deg))
+
 
     # Use Neural Network
     print("Price with Sequentical Neural Network =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
