@@ -98,7 +98,11 @@ if __name__ == '__main__':
 
 
     for deg in range(7):
-        print('deg =', deg, ": Price with GBM simulation =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
-                                                         fit_func=fit_poly, pred_func=pred_poly,
-                                                         deg=deg))
+        print('deg =', deg, ": Price with GBM simulation =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff,
+                                                                  type=type, fit_func=fit_poly, pred_func=pred_poly,
+                                                                  deg=deg))
 
+    # Use Neural Network
+    print("Price with Sequentical Neural Network =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
+                                                          fit_func=NN_fit, pred_func=NN_pred, num_epochs=10,
+                                                          batch_size=1000))
