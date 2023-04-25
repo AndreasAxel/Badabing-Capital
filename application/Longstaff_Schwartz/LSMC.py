@@ -40,7 +40,7 @@ def lsmc(t, X, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
     cashflow[M-1, :] = payoff[M, :]
 
     for j in range(M-1, 0, -1):
-        itm = payoff[j, :] > 0
+        itm = payoff[j, :] > -np.inf
 
         # Fit function for expected value of continuation
         fit = fit_func(X[j, itm], cashflow[j, itm] * discount_factor[j], *args, **kwargs)
@@ -85,24 +85,28 @@ if __name__ == '__main__':
 
 
     # Simulating with GBM
-    x0 = 1
+    x0 = 36
+    K = 40
+    r = 0.06
     t0 = 0.0
     T = 1.0
-    N = 10000
-    M = 252
+    N = 100000
+    M = 50
     sigma = 0.2
     seed = 1234
 
     t = np.linspace(start=t0, stop=T, num=M+1, endpoint=True)
     X = sim_gbm(t=t, x0=x0, N=N, mu=r, sigma=sigma, seed=seed)
 
+    print(np.exp(-r*T) * np.mean(european_payoff(X[-1], K, type)))
+
 
     for deg in range(7):
         print('deg =', deg, ": Price with GBM simulation =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff,
-                                                                  type=type, fit_func=fit_poly, pred_func=pred_poly,
+                                                                  type=type, fit_func=fit_laguerre_poly, pred_func=pred_laguerre_poly,
                                                                   deg=deg))
 
     # Use Neural Network
     print("Price with Sequentical Neural Network =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
-                                                          fit_func=NN_fit, pred_func=NN_pred, num_epochs=10,
-                                                          batch_size=1000))
+                                                          fit_func=NN_fit, pred_func=NN_pred, num_epochs=2,
+                                                          batch_size=32*4))

@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def sim_gbm(t, x0, N, mu, sigma, seed=None):
+def sim_gbm(t, x0, N, mu, sigma, use_av=True, seed=None):
     """
     Function for simulating Geometric Brownian Motion over specified time steps and initial values of the processes.
     The simulation uses the discretized analytical solution,
@@ -11,6 +11,7 @@ def sim_gbm(t, x0, N, mu, sigma, seed=None):
     :param N:       Number of simulations
     :param mu:      Drift coefficient
     :param sigma:   Diffusion coefficient (volatility)
+    :param use_av:  Use antithetic variates
     :param seed:    Seed used for replication of results
     :return:        numpy.array with dim (M+1, N).
                     Rows are time steps (including the start and end-point)
@@ -23,12 +24,17 @@ def sim_gbm(t, x0, N, mu, sigma, seed=None):
     dt = np.diff(t)
 
     rng = np.random.default_rng(seed=seed)
-    Z = rng.standard_normal(size=(M, N))
+
+    if use_av:
+        Z = rng.standard_normal(size=(M, N//2))
+        Z = np.hstack([Z, -Z])
+    else:
+        Z = rng.standard_normal(size=(M, N))
 
     x = np.zeros(shape=(M + 1, N))
     x[0] = x0 * np.ones(shape=(1, N))
 
-    for j in range(len(t[1:])):
+    for j in range(M):
         x[j+1] = x[j] * np.exp((mu-0.5*sigma**2)*dt[j] + sigma*np.sqrt(dt[j])*Z[j])
 
     return x
@@ -38,9 +44,9 @@ if __name__ == '__main__':
     # Parameters
     t0 = 0.0
     T = 3.0
-    x0 = [50, 100, 50, 100, 50]
+    x0 = 50
     M = 10
-    N = 5
+    N = 10000
     mu = 0.07
     sigma = 0.2
     seed = 1
