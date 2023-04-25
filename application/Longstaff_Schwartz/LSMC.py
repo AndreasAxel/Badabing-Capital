@@ -3,7 +3,15 @@ from application.options.payoff import european_payoff
 from application.simulation.sim_gbm import sim_gbm
 
 
-def lsmc(t, X, K, r, payoff_func, type, deg):
+def fit_poly(x, y, deg, *args, **kwargs):
+    return np.polyfit(x, y, deg)
+
+
+def pred_poly(x, fit, *args, **kwargs):
+    return np.polyval(fit, x)
+
+
+def lsmc(t, X, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
     """
     Longstaff-Schwartz Monte Carlo method for pricing an American option.
 
@@ -13,7 +21,8 @@ def lsmc(t, X, K, r, payoff_func, type, deg):
     :param r:               Risk free rate
     :param payoff_func:     Payoff function to be called
     :param type:            Type of option
-    :param deg:             Degree of the polynomial
+    :param fit_func         Function for fitting the (expected) value of value of continuation
+    :param pred_func        Function for predicting the (expected) value of continuation
     :return:                Price of the american option
     """
 
@@ -40,12 +49,12 @@ def lsmc(t, X, K, r, payoff_func, type, deg):
     for j in range(M-1, 0, -1):
         itm = payoff[j, :] > 0
 
-        # Perform regression
-        coeff = np.polyfit(x=X[j, itm], y=cashflow[j, itm] * discount_factor[-j], deg=deg)
+        # Fit function for expected value of continuation
+        fit = fit_func(X[j, itm], cashflow[j, itm] * discount_factor[-j], *args, **kwargs)
 
         # Determine stopping rule by
-        # comparing the value of exercising with the expected value of continuation
-        EV_cont = np.polyval(p=coeff, x=X[j, itm])
+        # comparing the value of exercising with the predicted (expected) value of continuation
+        EV_cont = pred_func(X[j, itm], fit, *args, **kwargs)
         exercise = payoff[j, itm]
 
         stopping_rule[j-1, itm] = exercise > EV_cont
@@ -78,7 +87,8 @@ if __name__ == '__main__':
         [1.08, 1.26, 1.07, 0.97, 1.56, 0.77, 0.84, 1.22],
         [1.34, 1.54, 1.03, 0.92, 1.52, 0.90, 1.01, 1.34]
     ))
-    print("Price Longstaff-Schwarz: ", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type, deg=deg))
+    print("Price Longstaff-Schwarz: ", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
+                                            fit_func=fit_poly, pred_func=pred_poly, deg=deg))
 
 
     # Simulating with GBM
@@ -93,5 +103,6 @@ if __name__ == '__main__':
     t = np.linspace(start=t0, stop=T, num=M+1, endpoint=True)
     X = sim_gbm(t=t, x0=x0, N=N, mu=r, sigma=sigma, seed=seed)
 
-    print("Price with GBM simulation: ", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type, deg=deg))
+    print("Price with GBM simulation: ", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
+                                              fit_func=fit_poly, pred_func=pred_poly, deg=deg))
 
