@@ -1,14 +1,7 @@
 import numpy as np
 from application.options.payoff import european_payoff
 from application.simulation.sim_gbm import sim_gbm
-
-
-def fit_poly(x, y, deg, *args, **kwargs):
-    return np.polyfit(x, y, deg)
-
-
-def pred_poly(x, fit, *args, **kwargs):
-    return np.polyval(fit, x)
+from application.Longstaff_Schwartz.utils.fit_predict import *
 
 
 def lsmc(t, X, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
@@ -74,7 +67,7 @@ def lsmc(t, X, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
 
 if __name__ == '__main__':
     # Example from the Longstaff-Schwartz article
-    K = 1.10
+    K = 1.1
     r = 0.06
     t = np.linspace(start=0, stop=3, num=4)
     type = 'PUT'
@@ -92,7 +85,7 @@ if __name__ == '__main__':
 
 
     # Simulating with GBM
-    x0 = 1.0
+    x0 = 1
     t0 = 0.0
     T = 1.0
     N = 10000
@@ -103,6 +96,9 @@ if __name__ == '__main__':
     t = np.linspace(start=t0, stop=T, num=M+1, endpoint=True)
     X = sim_gbm(t=t, x0=x0, N=N, mu=r, sigma=sigma, seed=seed)
 
-    print("Price with GBM simulation: ", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
-                                              fit_func=fit_poly, pred_func=pred_poly, deg=deg))
+
+    for deg in range(7):
+        print('deg =', deg, ": Price with GBM simulation =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
+                                                         fit_func=fit_poly, pred_func=pred_poly,
+                                                         deg=deg))
 
