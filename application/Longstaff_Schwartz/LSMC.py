@@ -2,6 +2,8 @@ import numpy as np
 from application.options.payoff import european_payoff
 from application.simulation.sim_gbm import sim_gbm
 from application.Longstaff_Schwartz.utils.fit_predict import *
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def lsmc(X, t, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
