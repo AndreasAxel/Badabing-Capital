@@ -5,7 +5,7 @@ from application.Longstaff_Schwartz.utils.fit_predict import *
 from application.options.payoff import european_payoff
 from joblib import Parallel, delayed
 from tqdm import tqdm
-import os
+from application.utils.path_utils import get_data_path
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -38,7 +38,7 @@ def generate_training_data(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, p
 
 if __name__ == '__main__':
     # Filename and export-path for data
-    export_filepath = os.getcwd().split('application\\')[0] + '\\data\\training_data_PUT.csv'
+    export_filepath = get_data_path('training_data_PUT.csv')
 
     # Grid, simulation and polynomial degree
     t0 = 0
