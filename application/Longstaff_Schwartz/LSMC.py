@@ -2,8 +2,6 @@ import numpy as np
 from application.options.payoff import european_payoff
 from application.simulation.sim_gbm import sim_gbm
 from application.Longstaff_Schwartz.utils.fit_predict import *
-import warnings
-warnings.filterwarnings("ignore")
 
 
 def lsmc(X, t, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
@@ -26,6 +24,7 @@ def lsmc(X, t, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
     assert len(X) == len(t), "The length of the passed simulations `X` and time steps `t` must be of same length."
 
     M = len(t) - 1
+    N = X.shape[1]
     dt = np.diff(t)
     df = np.exp(-r * dt)
 
@@ -37,14 +36,20 @@ def lsmc(X, t, K, r, payoff_func, type, fit_func, pred_func, *args, **kwargs):
     stopping_rule[M, :] = payoff[M, :] > 0
 
     for j in range(M - 1, 0, -1):
+        # Determine In-The-Money paths
+        # According to Longstaff & Schwart's article this improves efficiency and computation time.
+        itm = payoff[j, :] > 0
+
         # Fit prediction model
-        fit = fit_func(X[j, :], V[j + 1, :] * df[j], *args, **kwargs)
+        fit = fit_func(X[j, itm], V[j + 1, itm] * df[j], *args, **kwargs)
 
         # Predict value of continuation
-        EV_cont = pred_func(X[j, :], fit)
+        pred = list(pred_func(X[j, itm], fit))
+        EV_cont = np.zeros((N, ))
+        EV_cont[itm] = pred
 
         # Determine whether is it optimal to exercise or continue. Update values accordingly
-        stopping_rule[j, :] = payoff[j, :] > np.maximum(EV_cont, 0.0)
+        stopping_rule[j, :] = payoff[j, :] > EV_cont
         V[j, :] = np.where(stopping_rule[j, :],
                            payoff[j, :], V[j + 1, :] * df[j])  # Exercise / Continuation
 
@@ -92,6 +97,6 @@ if __name__ == '__main__':
                                                                   deg=deg))
 
     # Use Neural Network
-    print("Price with Sequentical Neural Network =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
-                                                          fit_func=NN_fit, pred_func=NN_pred, num_epochs=2,
-                                                          batch_size=32*4))
+    #print("Price with Sequentical Neural Network =", lsmc(t=t, X=X, K=K, r=r, payoff_func=european_payoff, type=type,
+    #                                                      fit_func=NN_fit, pred_func=NN_pred, num_epochs=2,
+    #                                                      batch_size=32*4))
