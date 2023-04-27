@@ -1,5 +1,7 @@
 import numpy as np
 import tensorflow as tf
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def fit_poly(x, y, deg, *args, **kwargs):
