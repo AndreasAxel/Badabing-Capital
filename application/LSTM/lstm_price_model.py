@@ -1,9 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
-import os
-import csv
-from pathlib import Path
+from application.utils.path_utils import get_data_path
 
 # Long-Short Term Memory network used for estimating deltas through back-propagation
 def LSTM_model(num_inputs, num_outputs, *args, **kwargs):
@@ -45,13 +43,13 @@ if __name__ == "__main__":
     from sklearn.model_selection import train_test_split
 
     # Load generated data
-    import_filename = Path(__file__).parent.parent.parent / "data/training_data_PUT.csv"
-    data = np.genfromtxt(import_filename, delimiter = ",", skip_header = 0)
+    import_filename = get_data_path("training_data_PUT.csv")
+    data = np.genfromtxt(import_filename, delimiter=",", skip_header=0)
 
     # Separate option prices from input data
     X = data[:, :-1]
     y = data[:, -1]
-    y = y.reshape((len(y), 1)) # Reshape in order to match shape of predicted y's
+    y = y.reshape((len(y), 1))  # Reshape in order to match shape of predicted y's
 
     # Split data into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
