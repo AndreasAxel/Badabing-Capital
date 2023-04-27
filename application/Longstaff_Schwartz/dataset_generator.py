@@ -22,10 +22,10 @@ def generate_training_data(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, p
     ]).astype(float)
 
     def lsmc_price(i):
-        t_arg = int(np.argwhere(np.abs(t - float(grid[i, 3])) < 1E-6)[0])
-        X = sim_gbm(t=t[:t_arg], x0=float(grid[i, 0]), N=N, mu=float(grid[i, 1]), sigma=float(grid[i, 2]))
+        t_arg = int(np.argwhere(np.abs(t - grid[i, 3]) < 1E-6)[0])
+        X = sim_gbm(t=t[:t_arg], x0=grid[i, 0], N=N, mu=float(grid[i, 1]), sigma=grid[i, 2])
 
-        price = lsmc(X=X / K, t=t[:t_arg], K=1, r=float(grid[i, 1]), payoff_func=payoff_func, type=str(type),
+        price = lsmc(X=X, t=t[:t_arg], K=1, r=grid[i, 1], payoff_func=payoff_func, type=str(type),
                      fit_func=fit_func, pred_func=pred_func, deg=deg)
         return float(price)
 
