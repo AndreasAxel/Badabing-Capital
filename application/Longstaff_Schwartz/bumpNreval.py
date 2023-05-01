@@ -108,7 +108,7 @@ if __name__ == '__main__':
     plt.title('LSMC ∆ stability (bump-n-reval)')
     plt.plot(np.log(x), np.log(y), 'o',
               color='blue')
-    plt.plot(np.log(x), abline_values, '-', 'grey')
+    plt.plot(np.log(x), abline_values, '-', color='grey')
     plt.plot(np.log(x), np.log(y),
              linestyle='-', color='blue')
     plt.ylabel('Standard deviation of ∆')
