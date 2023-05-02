@@ -77,7 +77,7 @@ def bridge_brownian_motion(t_W, t_B, W, B):
     :return:    The filled timeline and filled brownian motion (both sorted by time)
     """
     assert len(t_W) == len(W), 'Length of brownian motion and its timeline must be equal.'
-    assert len(t_W) == len(W), 'Length of brownian bridge and its timeline must be equal.'
+    assert len(t_B) == len(B), 'Length of brownian bridge and its timeline must be equal.'
     t = np.concatenate([t_W, t_B[1:-1]])
     order = np.argsort(t)
     W_ = np.vstack([W, B])[order, :]
