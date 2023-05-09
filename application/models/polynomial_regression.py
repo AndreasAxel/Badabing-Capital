@@ -12,9 +12,9 @@ def create_polynomial(deg = 5):
     return make_pipeline(PolynomialFeatures(degree=deg, order='F'), Normalizer(norm="l2"), LinearRegression(n_jobs=-1)) # Construct pipeline for given estimators
 
 def polynomial_regression(X_train, y_train, X_test, deg=None):
-    pol_reg = create_polynomial(deg=deg)
-    pol_reg = pol_reg.fit(X_train, y_train)
-    pred = pol_reg.predict(X_test)
+    poly_reg = create_polynomial(deg=deg)
+    poly_reg = poly_reg.fit(X_train, y_train)
+    pred = poly_reg.predict(X_test)
     return pred
 
 
@@ -33,7 +33,8 @@ if __name__ == '__main__':
 
     y_pred = polynomial_regression(X_train, y_train, X_test, deg=5) # compute classical polynomial predictions
     plt.figure(figsize=(7.5, 7.5))
-    plot_results(ax=plt.gca(), y_test=y_test, y_pred=[y_pred], title="continuation value by classic regression, applied to test set")
+    plot_results(ax=plt.gca(), y_test=y_test, y_pred=[y_pred],
+                 title="continuation value by classic regression, applied to test set")
     _=plt.show()
 
 
