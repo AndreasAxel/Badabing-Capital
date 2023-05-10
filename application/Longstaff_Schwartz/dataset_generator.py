@@ -10,8 +10,8 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def generate_training_data(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, payoff_func, fit_func, pred_func, deg,
-                           export_filepath):
+def generate_training_data_from_parameters(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, payoff_func, fit_func, pred_func, deg,
+                                           export_filepath):
 
     grid = np.array([
         (m, r, sigma, T, np.nan)
@@ -37,6 +37,7 @@ def generate_training_data(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, p
 
 
 if __name__ == '__main__':
+    """
     # Filename and export-path for data
     export_filepath = get_data_path('training_data_PUT.csv')
 
@@ -59,6 +60,11 @@ if __name__ == '__main__':
 
     t = np.linspace(start=t0, stop=np.max(vec_T), num=M + 1, endpoint=True)
 
-    generate_training_data(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, payoff_func=european_payoff,
-                           fit_func=fit_laguerre_poly, pred_func=pred_laguerre_poly, deg=deg,
-                           export_filepath=export_filepath)
+    generate_training_data_from_parameters(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, payoff_func=european_payoff,
+                                           fit_func=fit_laguerre_poly, pred_func=pred_laguerre_poly, deg=deg,
+                                           export_filepath=export_filepath)
+    """
+
+
+
+

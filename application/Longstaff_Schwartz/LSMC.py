@@ -80,7 +80,7 @@ def lsmc_pathwise_delta(X, t, K, r, pathwise_opt_stopping_idx, payoff_func, type
         by Deussen, Mosenkis, Naumann (2018).
     And slides
         'Fast Delta-Estimates for American Options by Adjoint Algorithmic Differentiation'
-        by Deussen (Algodiff, 2015)
+        by Deussen (Autodiff, 2015)
 
     :param t:               Time steps
     :param X:               Simulated paths
