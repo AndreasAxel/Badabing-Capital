@@ -90,8 +90,8 @@ class LSMC():
         self.price = np.mean(self.cashflow[1, :] * self.df[0])
         self.opt_stopping_rule = np.cumsum(np.cumsum(self.stopping_rule[1:], axis=0), axis=0) == 1
 
-        self.pathwise_opt_stopping_idx = np.argmax(self.stopping_rule, axis=0).astype(float)
-        self.pathwise_opt_stopping_idx[self.pathwise_opt_stopping_idx == 0] = np.nan  # Not exercising at time 0
+        self.pathwise_opt_stopping_idx = np.argmax(self.opt_stopping_rule, axis=0).astype(float)
+        self.pathwise_opt_stopping_idx[self.pathwise_opt_stopping_idx == 0.0] = np.nan  # Not exercising at time 0
 
         self.pathwise_opt_stopping_time = [idx if np.isnan(idx)
                                            else self.t[int(idx)]
