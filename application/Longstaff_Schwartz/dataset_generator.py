@@ -73,7 +73,7 @@ if __name__ == '__main__':
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
     vec_spot = np.random.default_rng().uniform(low=x0*(1-num_std*sigma), high=x0*(1+num_std*sigma), size=size)
 
-    #export_filepath = get_data_path('LSMC_put_with_AD.csv')
+    #export_filepath = get_data_path('LSMC_pathwise_bs_ad.csv')
     #print(gen_LSMC_data(t=t, vec_spot=vec_spot, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
 
     export_filepath = get_data_path('LSMC_pathwise.csv')
