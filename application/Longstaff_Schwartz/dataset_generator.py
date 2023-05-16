@@ -33,23 +33,26 @@ def gen_LSMC_pathwise_data(t, spot, r, sigma, K, N, export_filepath):
     simulator = GBM(t=t, x0=spot, N=N, mu=r, sigma=sigma, use_av=True, seed=None)
     simulator.sim_exact()
     lsmc = LSMC(simulator=simulator, K=K, r=r, payoff_func=european_payoff, option_type='PUT')
-    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=False, deg=5)
+    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=True, deg=5)
 
+    tau = np.array([t if ~np.isnan(t) else 1.0 for t in lsmc.pathwise_opt_stopping_time])
+    df = np.exp(-r * tau)
+
+    one = ~np.isnan(lsmc.pathwise_opt_stopping_time)
     S_tau = np.sum(lsmc.X[1:] * lsmc.opt_stopping_rule, axis=0)
-    delta = - S_tau / spot
+    payoff = np.sum(lsmc.payoff[1:] * lsmc.opt_stopping_rule, axis=0)
+    delta = - df * S_tau / spot * one
 
     out = np.vstack([
         spot * np.ones(shape=(N,)),
-        S_tau,
-        lsmc.pathwise_opt_stopping_time,
-        lsmc.pathwise_opt_stopping_idx,
+        payoff,
         delta
     ]).T
 
     np.savetxt(export_filepath,
                out,
                delimiter=",",
-               header="SPOT, S_TAU, TAU, TAU_IDX, DELTA")
+               header="SPOT, PAYOFF, DELTA")
     return out
 
 
