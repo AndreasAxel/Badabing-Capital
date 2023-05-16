@@ -67,6 +67,10 @@ if __name__ == '__main__':
     # Calculate discounted cashflow (present value)
     cf_pv = cf_tau * df
 
-    fit = fit_poly(x=x_isd - x0, y=cf_pv, deg=deg_stentoft)  # coefficients `b`
-    price = pred_poly(x=x0-x0, fit=fit)
-    print(price)
+    coef_price = fit_poly(x=x_isd - x0, y=cf_pv, deg=deg_stentoft)  # coefficients `b`
+    price = pred_poly(x=x0 - x0, fit=coef_price)
+
+    coef_delta = np.polyder(coef_price, 1)
+    delta = pred_poly(x=x0 - x0, fit=coef_delta)
+
+

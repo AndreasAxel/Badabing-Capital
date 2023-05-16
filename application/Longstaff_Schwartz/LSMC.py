@@ -103,6 +103,7 @@ class LSMC():
         """
         bs_price_ad = 0.0
         bs_delta_ad = 0.0
+        bs_vega_ad = 0.0
 
         # Calculate "contribution" from each path
         for p in range(self.N):
@@ -116,10 +117,12 @@ class LSMC():
             # Calculate greeks (assume Black Scholes model)
             # TODO: This can be generalized to ANY model by using Adjoint Differentiation (AD). Also more greeks can be added
             bs_delta_ad += - X_tau * np.exp(-self.r * t[idx]) / self.X[0, p]
+            bs_vega_ad +=
 
         # Results are the average across each path
         self.bs_price_ad = bs_price_ad / self.N
         self.bs_delta_ad = bs_delta_ad / self.N
+
 
 
 if __name__ == '__main__':
