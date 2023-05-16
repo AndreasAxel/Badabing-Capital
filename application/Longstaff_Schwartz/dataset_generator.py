@@ -1,70 +1,77 @@
 import numpy as np
-from application.simulation.sim_gbm import sim_gbm
-from application.Longstaff_Schwartz.LSMC import lsmc
+from application.simulation.sim_gbm import GBM
+from application.Longstaff_Schwartz.LSMC import LSMC
 from application.Longstaff_Schwartz.utils.fit_predict import *
 from application.options.payoff import european_payoff
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from application.utils.path_utils import get_data_path
-import warnings
-warnings.filterwarnings("ignore")
 
 
-def generate_training_data_from_parameters(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, payoff_func, fit_func, pred_func, deg,
-                                           export_filepath):
+def gen_LSMC_data(t, vec_spot, r, sigma, K, N, export_filepath):
 
-    grid = np.array([
-        (m, r, sigma, T, np.nan)
-        for m in vec_moneyness
-        for r in vec_r
-        for sigma in vec_sigma
-        for T in vec_T
-    ]).astype(float)
+    def calc(s):
+        simulator = GBM(t=t, x0=s, N=N, mu=r, sigma=sigma, use_av=True, seed=None)
+        simulator.sim_exact()
+        lsmc = LSMC(simulator=simulator, K=K, r=r, payoff_func=european_payoff, option_type='PUT')
+        lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=False, deg=5)
+        lsmc.pathwise_bs_greeks_ad()
+        return [s, lsmc.bs_price_ad, lsmc.bs_delta_ad, lsmc.bs_vega_ad]
 
-    def lsmc_price(i):
-        t_arg = int(np.argwhere(np.abs(t - grid[i, 3]) < 1E-6)[0])
-        X = sim_gbm(t=t[:t_arg], x0=grid[i, 0], N=N, mu=float(grid[i, 1]), sigma=grid[i, 2])
+    out = Parallel(n_jobs=-1)(delayed(calc)(s) for s in tqdm(vec_spot))
+    out = np.vstack(out)
 
-        price = lsmc(X=X, t=t[:t_arg], K=1, r=grid[i, 1], payoff_func=payoff_func, type=str(type),
-                     fit_func=fit_func, pred_func=pred_func, deg=deg)
-        return float(price)
-
-    grid[:, 4] = Parallel(n_jobs=-1)(delayed(lsmc_price)(i) for i in tqdm(range(len(grid))))
     np.savetxt(export_filepath,
-               grid,
+               out,
                delimiter=",",
-               header="MONEYNESS, r, sigma, T, PRICE")
+               header="SPOT, PRICE, DELTA, VEGA")
+
+    return out
+
+
+def gen_LSMC_pathwise_data(t, spot, r, sigma, K, N, export_filepath):
+    simulator = GBM(t=t, x0=spot, N=N, mu=r, sigma=sigma, use_av=True, seed=None)
+    simulator.sim_exact()
+    lsmc = LSMC(simulator=simulator, K=K, r=r, payoff_func=european_payoff, option_type='PUT')
+    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=False, deg=5)
+
+    S_tau = np.sum(lsmc.X[1:] * lsmc.opt_stopping_rule, axis=0)
+    delta = - S_tau / spot
+
+    out = np.vstack([
+        spot * np.ones(shape=(N,)),
+        S_tau,
+        lsmc.pathwise_opt_stopping_time,
+        lsmc.pathwise_opt_stopping_idx,
+        delta
+    ]).T
+
+    np.savetxt(export_filepath,
+               out,
+               delimiter=",",
+               header="SPOT, S_TAU, TAU, TAU_IDX, DELTA")
+    return out
 
 
 if __name__ == '__main__':
-    """
-    # Filename and export-path for data
-    export_filepath = get_data_path('training_data_PUT.csv')
-
-    # Grid, simulation and polynomial degree
-    t0 = 0
-    M = 100
-    N = 10000
-    deg = 3
-
-    # Vectors used in grid
-    K = 100
-    vec_S = np.array([50 + n for n in range(0, 101)])
-    vec_moneyness = vec_S / K
-    vec_T = np.array([0.1 * n for n in range(1, 11)])
-    vec_r = np.array([0.05 * n for n in range(11)])
-    vec_sigma = np.array([0.05 * n for n in range(1, 7)])
-
-    # Option type
-    type = 'PUT'
-
-    t = np.linspace(start=t0, stop=np.max(vec_T), num=M + 1, endpoint=True)
-
-    generate_training_data_from_parameters(t, N, vec_moneyness, vec_r, vec_sigma, vec_T, type, payoff_func=european_payoff,
-                                           fit_func=fit_laguerre_poly, pred_func=pred_laguerre_poly, deg=deg,
-                                           export_filepath=export_filepath)
-    """
+    # Parameters
+    t0 = 0.0
+    T = 1.0
+    x0 = 40
+    K = 40
+    M = 52
+    N = 100000
+    r = 0.06
+    sigma = 0.2
+    size = 8192
+    num_std = 5
 
 
+    t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
+    vec_spot = np.random.default_rng().uniform(low=x0*(1-num_std*sigma), high=x0*(1+num_std*sigma), size=size)
 
+    #export_filepath = get_data_path('LSMC_put_with_AD.csv')
+    #print(gen_LSMC_data(t=t, vec_spot=vec_spot, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
 
+    export_filepath = get_data_path('LSMC_pathwise.csv')
+    print(gen_LSMC_pathwise_data(t=t, spot=x0, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))

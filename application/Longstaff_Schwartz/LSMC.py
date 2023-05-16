@@ -1,10 +1,11 @@
 import numpy as np
 from application.options.payoff import european_payoff
-from application.simulation.sim_gbm import sim_gbm
+from application.simulation.sim_gbm import GBM
 from application.Longstaff_Schwartz.utils.fit_predict import *
 
+
 class LSMC():
-    def __init__(self, t, X, K, r, payoff_func, option_type):
+    def __init__(self, simulator, K, r, payoff_func, option_type):
         """
         Longstaff-Schwartz Monte Carlo method for pricing an American option.
 
@@ -17,27 +18,30 @@ class LSMC():
         :param fit_func         Function for fitting the (expected) value of value of continuation
         :param pred_func        Function for predicting the (expected) value of continuation
         """
-        self.t = t
-        self.X = X
+        self.t = simulator.t
+        self.dt = simulator.dt
+        self.M = simulator.M
+        self.N = simulator.N
+        self.X = simulator.X
+        self.W = simulator.W
+
+        self.sigma = simulator.sigma
         self.K = K
         self.r = r
+
         self.payoff_func = payoff_func
         self.option_type = option_type
 
-        # Auxiliary variables (
-        self.M = len(t) - 1
-        self.N = np.shape(X)[1]
-        self.dt = np.diff(t)
         self.df = np.exp(-r * self.dt)
 
         self.fit_func = None
         self.pred_func = None
 
         # Initialization
-        self.payoff = payoff_func(X, K, option_type)
+        self.payoff = payoff_func(self.X, self.K, option_type)
         self.cashflow = np.zeros_like(self.payoff)
         self.cashflow[self.M, ] = self.payoff[self.M, :]
-        self.stopping_rule = np.zeros_like(X).astype(dtype=bool)
+        self.stopping_rule = np.zeros_like(self.X).astype(dtype=bool)
         self.stopping_rule[self.M, :] = self.payoff[self.M, :] > 0
 
         # LSMC results (price and optimal stopping)
@@ -49,6 +53,7 @@ class LSMC():
         # Adjoint Differential Greeks (assumes Black-Scholes model)
         self.bs_price_ad = None
         self.bs_delta_ad = None
+        self.bs_vega_ad = None
 
     def run_backwards(self, fit_func, pred_func, regress_only_itm=True, *args, **kwargs):
         """
@@ -111,21 +116,25 @@ class LSMC():
             if np.isnan(idx):
                 continue
             idx = int(idx)
+            tau = self.t[idx]
             X_tau = self.X[idx, p]
+            W_tau = self.W[idx, p]
 
-            bs_price_ad += self.payoff_func(X_tau, self.K, self.option_type) * np.exp(-self.r * self.t[idx])
+            bs_price_ad += self.payoff_func(X_tau, self.K, self.option_type) * np.exp(-self.r * tau)
             # Calculate greeks (assume Black Scholes model)
             # TODO: This can be generalized to ANY model by using Adjoint Differentiation (AD). Also more greeks can be added
-            bs_delta_ad += - X_tau * np.exp(-self.r * t[idx]) / self.X[0, p]
-            bs_vega_ad +=
+            #bs_delta_ad += - X_tau * np.exp(-self.r * t[idx]) / self.X[0, p]
+            bs_delta_ad += -np.exp((self.r - 0.5 * self.sigma**2) * tau + self.sigma * W_tau)
+            bs_vega_ad += -X_tau * (-self.sigma * tau)
 
         # Results are the average across each path
         self.bs_price_ad = bs_price_ad / self.N
         self.bs_delta_ad = bs_delta_ad / self.N
-
+        self.bs_vega_ad = bs_vega_ad / self.N
 
 
 if __name__ == '__main__':
+    """
     # Example from the Longstaff-Schwartz article
     K = 1.1
     r = 0.06
@@ -147,9 +156,10 @@ if __name__ == '__main__':
     print("Pathwise optimal stopping time: \n", LSMC_example.pathwise_opt_stopping_time)
     print("Pathwise optimal stopping index: \n", LSMC_example.pathwise_opt_stopping_idx)
     print(LSMC_example.opt_stopping_rule)
+    """
 
     # Simulating with GBM
-    x0 = 36
+    x0 = 40
     K = 40
     r = 0.06
     t0 = 0.0
@@ -158,13 +168,17 @@ if __name__ == '__main__':
     M = 50
     sigma = 0.2
     seed = 1234
+    use_av = True
+    option_type = 'PUT'
 
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
-    X = sim_gbm(t=t, x0=x0, N=N, mu=r, sigma=sigma, seed=seed)
+    simulator = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=use_av, seed=seed)
+    simulator.sim_exact()
 
-    for deg in range(10):
-        LSMC_gbm = LSMC(t=t, X=X, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
+    for deg in range(5, 6):
+        LSMC_gbm = LSMC(simulator, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
         LSMC_gbm.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=True, deg=deg)
         LSMC_gbm.pathwise_bs_greeks_ad()
 
-        print('deg = {}: Price = {:.4f}, Delta ={:.4f}'.format(deg, LSMC_gbm.price, LSMC_gbm.bs_delta_ad))
+        print('deg = {}: Price = {:.4f}, Delta = {:.4f}, Vega = {:.4f}'.format(
+            deg, LSMC_gbm.price, LSMC_gbm.bs_delta_ad, LSMC_gbm.bs_vega_ad))
