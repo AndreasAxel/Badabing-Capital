@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.model_selection import train_test_split
 from application.utils.path_utils import get_data_path
 from application.utils.visualize_results import plot_results
 from application.models.polynomial_regression import polynomial_regression
+from application.utils.data_management import data_preprocessing
 
 
 class DifferentialRegression:
@@ -51,20 +51,8 @@ if __name__ == '__main__':
     # Separate option prices from input data
     #idx = np.random.default_rng().integers(low=0, high=66000, size=10000)
 
-    X = data[:,0].reshape(-1, 1) # Spot
-    y = data[:,1:].reshape(-1, 2) # Include payoff and delta in order to make proper train test split
-    #y = y.reshape(np.shape(y)[0], 2)  # Reshape in order to match shape of predicted y's
 
-
-    # Split data into training and test sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=69)
-
-
-    # divide data properly to also consider derivatives z
-    z_train = y_train[:, 1, np.newaxis]
-    y_train = y_train[:, 0, np.newaxis]
-    z_test = y_test[:, 1, np.newaxis]
-    y_test = y_test[:, 0, np.newaxis]
+    X_train, z_train, y_train, X_test, z_test, y_test = data_preprocessing(data=data, compute_z=True)
 
 
     # compute classical polynomial predictions

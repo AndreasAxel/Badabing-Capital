@@ -6,6 +6,7 @@ from application.options.payoff import european_payoff
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from application.utils.path_utils import get_data_path
+from application.models.LetourneauStentoft import *
 
 
 def gen_LSMC_data(t, vec_spot, r, sigma, K, N, export_filepath):
@@ -56,6 +57,31 @@ def gen_LSMC_pathwise_data(t, spot, r, sigma, K, N, export_filepath):
     return out
 
 
+
+
+def gen_Letourneau_data(spot, fitted, N, export_filepath):
+    x0 = fitted[0],
+    priceFit = fitted[1]
+    deltaFit = fitted[2]
+    gammaFit = fitted[3]
+
+    payoff, delta, gamma = Letourneau(spot, x0, priceFit, deltaFit, gammaFit)
+
+    out = np.vstack([
+        spot * np.ones(shape=(N,)),
+        payoff,
+        delta,
+        gamma
+    ]).T
+
+    np.savetxt(export_filepath,
+               out,
+               delimiter=",",
+               header="SPOT, PAYOFF, DELTA, GAMMA")
+    return out
+
+
+
 if __name__ == '__main__':
     # Parameters
     t0 = 0.0
@@ -73,6 +99,31 @@ if __name__ == '__main__':
 
     export_filepath = get_data_path('LSMC_pathwise_bs_ad_v2.csv')
     #print(gen_LSMC_data(t=t, vec_spot=vec_spot, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
+
+    letourneauExport = False
+
+    if letourneauExport:
+        alpha = 25
+        deg_lsmc = 9
+        deg_stentoft = 9
+        option_type = 'PUT'
+        x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=None)
+        fitted = disperseFit(t0=t0,
+                             T=T,
+                             x0=x0,
+                             N=N,
+                             M=M,
+                             r=r,
+                             sigma=sigma,
+                             K=K,
+                             seed=None,
+                             deg_lsmc=deg_lsmc,
+                             deg_stentoft=deg_stentoft,
+                             option_type=option_type,
+                             alpha=alpha,
+                             x_isd=x_isd)
+        export_filepath = get_data_path('letourneauStentoft_data.csv')
+        gen_Letourneau_data(spot=x_isd, fitted=fitted, N=N, export_filepath=export_filepath)
 
     import matplotlib.pyplot as plt
     X = np.loadtxt(export_filepath, delimiter=',')
@@ -92,5 +143,4 @@ if __name__ == '__main__':
 
     #export_filepath = get_data_path('LSMC_pathwise_v2.csv')
     #print(gen_LSMC_pathwise_data(t=t, spot=x0, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
-
 
