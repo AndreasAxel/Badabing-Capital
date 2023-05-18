@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 from application.binomial_model.binomial_model import binomial_tree_bs
 from application.options.payoff import european_payoff
 
 
 if __name__ == '__main__':
+    # Parameters
     spot = np.linspace(start=10, stop=70, num=101, endpoint=True)
     K = 40
     r = 0.06
@@ -15,17 +15,14 @@ if __name__ == '__main__':
     option_type = 'PUT'
     eur_amr = 'AMR'
 
-    price = []
-    delta = []
+    # Vectorize function
+    vfunc = np.vectorize(binomial_tree_bs)
+    price, delta = vfunc(K=K, T=T, S0=spot, r=r, sigma=sigma, M=M, payoff_func=european_payoff,
+                         option_type=option_type, eur_amr=eur_amr)
 
-    for s in tqdm(spot):
-        res = binomial_tree_bs(K=K, T=T, S0=s, r=r, sigma=sigma, M=M, payoff_func=european_payoff,
-                               option_type=option_type, eur_amr=eur_amr)
-        price.append(res[0])
-        delta.append(res[1])
-
+    # Plot results
     fig, ax = plt.subplots(2, sharex='all')
-    plt.title('Binomial model for {} {} option'.format(eur_amr, option_type))
+
     ax[0].plot(spot, price, color='blue')
     ax[0].set_ylabel('Price')
 
