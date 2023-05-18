@@ -37,6 +37,8 @@ class LSMC():
         self.fit_func = None
         self.pred_func = None
 
+        self.epsilon = 1E-8
+
         # Initialization
         self.payoff = payoff_func(self.X, self.K, option_type)
         self.cashflow = np.zeros_like(self.payoff)
@@ -70,8 +72,10 @@ class LSMC():
 
         for j in range(self.M - 1, 0, -1):
             itm = self.payoff[j, :] > 0 #if regress_only_itm else np.ones_like(self.payoff[j, :]).astype(dtype=bool)
-            if len(itm) == 0:
-                itm = np.ones_like(self.payoff[j, :])
+
+            # If no paths are ITM then use all paths as we cannot regress on an empty array
+            if np.sum(itm) == 0.0:
+                itm = np.ones(shape=(self.N, )).astype(bool)
 
             # Fit prediction model
             fit = fit_func(self.X[j, itm], self.cashflow[j + 1, itm] * self.df[j], *args, **kwargs)
@@ -79,17 +83,18 @@ class LSMC():
             # Predict value of continuation
             pred = list(pred_func(self.X[j, itm], fit))
             EV_cont = np.zeros((self.N,))
-            EV_cont[itm] = np.maximum(pred, 0.0)
+            EV_cont[itm] = np.maximum(pred, 0.0)    # Cannot have negative continuation value
+
 
             # Determine whether is it optimal to exercise or continue. Update values accordingly
-            self.stopping_rule[j, :] = self.payoff[j, :] > EV_cont
+            self.stopping_rule[j, :] = self.payoff[j, :] > EV_cont + self.epsilon
             self.cashflow[j, :] = np.where(self.stopping_rule[j, :],
                                            self.payoff[j, :],                     # Value of exercising
                                            self.cashflow[j + 1, :] * self.df[j])  # Value of continuation
 
         # Calculate outputs
         self.price = np.mean(self.cashflow[1, :] * self.df[0])
-        self.opt_stopping_rule = np.cumsum(np.cumsum(self.stopping_rule[1:], axis=0), axis=0) == 1
+        self.opt_stopping_rule = np.cumsum(np.cumsum(self.stopping_rule, axis=0), axis=0) == 1
 
         self.pathwise_opt_stopping_idx = np.argmax(self.opt_stopping_rule, axis=0).astype(float)
         self.pathwise_opt_stopping_idx[self.pathwise_opt_stopping_idx == 0.0] = np.nan  # Not exercising at time 0
@@ -110,12 +115,13 @@ class LSMC():
         bs_price_ad = 0.0
         bs_delta_ad = 0.0
         bs_vega_ad = 0.0
-
+        count = 0
         # Calculate "contribution" from each path
         for p in range(self.N):
             idx = self.pathwise_opt_stopping_idx[p]
             if np.isnan(idx):
                 continue
+            count += 1
             idx = int(idx)
             tau = self.t[idx]
             X_tau = self.X[idx, p]
@@ -127,7 +133,7 @@ class LSMC():
             #bs_delta_ad += - X_tau * np.exp(-self.r * t[idx]) / self.X[0, p]
             bs_delta_ad += -np.exp((self.r - 0.5 * self.sigma**2) * tau + self.sigma * W_tau)
             bs_vega_ad += -X_tau * (-self.sigma * tau)
-
+        #print(count)
         # Results are the average across each path
         self.bs_price_ad = bs_price_ad / self.N
         self.bs_delta_ad = bs_delta_ad / self.N
@@ -171,12 +177,13 @@ if __name__ == '__main__':
     seed = 1234
     use_av = True
     option_type = 'PUT'
+    deg = 9
 
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
     simulator = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=use_av, seed=seed)
     simulator.sim_exact()
 
-    for deg in range(5, 6):
+    for deg in range(9, 10):
         LSMC_gbm = LSMC(simulator, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
         LSMC_gbm.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=True, deg=deg)
         LSMC_gbm.pathwise_bs_greeks_ad()
