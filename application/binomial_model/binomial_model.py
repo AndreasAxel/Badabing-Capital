@@ -57,6 +57,7 @@ if __name__ == '__main__':
     S0 = 40
     K = 40
     option_type = 'PUT'
+    eur_amr = 'AMR'
 
     u = np.exp(sigma * np.sqrt(T / M))
     d = np.exp(-sigma * np.sqrt(T / M))
