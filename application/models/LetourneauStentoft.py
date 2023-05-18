@@ -27,6 +27,48 @@ def ISD(N, x0, alpha, seed=None):
     return X
 
 
+def disperseFit(t0, T, x0, x_isd, N, M, r, sigma,K, seed,
+                deg_lsmc, deg_stentoft, option_type,
+
+                alpha = 25, *args, **kwargs):
+
+    t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
+    X = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, seed=seed, use_av=True)
+    X.sim_exact()
+    # LSMC method for cashflows & stopping times
+    lsmc = LSMC(simulator=X, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
+    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg_lsmc)
+
+    cf = lsmc.payoff
+    cf = np.sum((cf * lsmc.opt_stopping_rule), axis=0)
+    # Calculate discount factor
+    df = [np.exp(-r * tau) if ~np.isnan(tau) else 0.0 for tau in lsmc.pathwise_opt_stopping_time]
+    cf_pv = cf * df
+
+    coef_price = fit_poly(x=x_isd - x0, y=cf_pv, deg=deg_stentoft)  # coefficients `b`
+    coef_delta = np.polyder(coef_price, 1)
+    coef_gamma = np.polyder(coef_price, 2)
+
+    return x0, coef_price, coef_delta, coef_gamma
+
+def Letourneau( spot, x0, priceFit, deltaFit, gammaFit, *args, **kwargs):
+    """
+    :param alpha:
+    :param N:
+    :param deg_stentoft:
+    :param args:
+    :param kwargs:
+    :return:
+    """
+
+    price = pred_poly(x=spot - x0, fit=priceFit)
+    delta = pred_poly(x=spot - x0, fit=deltaFit)
+    gamma = pred_poly(x=spot - x0, fit=gammaFit)
+
+    return (price, delta, gamma)
+
+
+
 if __name__ == '__main__':
     plot = True
 
@@ -43,6 +85,28 @@ if __name__ == '__main__':
     deg_stentoft = 9
     option_type = 'PUT'
     alpha = 25
+
+    x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
+    fitted = disperseFit(t0=t0,
+                         T=T,
+                         x0=x0,
+                         N=N,
+                         M=M,
+                         r=r,
+                         sigma=sigma,
+                         K=K,
+                         seed=seed,
+                         deg_lsmc=deg_lsmc,
+                         deg_stentoft=deg_stentoft,
+                         option_type=option_type,
+                         alpha=alpha,
+                         x_isd=x_isd)
+
+    import matplotlib.pyplot as plt
+    plt.scatter(x=delta, y=binDelta, marker='o')
+    plt.show()
+
+    """
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
 
     ## Calc. American Option price with Letourneau & Stentoft
@@ -73,8 +137,8 @@ if __name__ == '__main__':
     gamma = pred_poly(x=s0 - x0, fit=coef_gamma)
 
     print('price = {}, delta = {}, gamma = {}'.format(price, delta, gamma))
-
-    def forPlotting(alpha, N, M, x0, t, r, K, sigma, seed, deg_lsmc):
+    """
+    def forPlotting(alpha, N, M, x0, t0, r, K, sigma, seed, deg_lsmc):
         t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
         x_isd = ISD(N=N, x0=x0, alpha=alpha)
         X = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, seed=seed, use_av=True)
@@ -99,8 +163,8 @@ if __name__ == '__main__':
     if plot:
         import matplotlib.pyplot as plt
         alpha1, alpha2 = 0.5, 25
-        x,y = forPlotting(alpha1, N, M, x0, t, r, K, sigma, seed, deg_lsmc)
-        x2, y2 = forPlotting(alpha2, N, M, x0, t, r, K, sigma, seed, deg_lsmc)
+        x,y = forPlotting(alpha1, N, M, x0, t0, r, K, sigma, seed, deg_lsmc)
+        x2, y2 = forPlotting(alpha2, N, M, x0, t0, r, K, sigma, seed, deg_lsmc)
 
         fig, (ax1, ax2) = plt.subplots(1,2)
         fig.suptitle('Payoff dispersion, N={}'.format(N))
