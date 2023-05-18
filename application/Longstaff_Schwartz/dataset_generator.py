@@ -14,7 +14,7 @@ def gen_LSMC_data(t, vec_spot, r, sigma, K, N, export_filepath):
         simulator = GBM(t=t, x0=s, N=N, mu=r, sigma=sigma, use_av=True, seed=None)
         simulator.sim_exact()
         lsmc = LSMC(simulator=simulator, K=K, r=r, payoff_func=european_payoff, option_type='PUT')
-        lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=False, deg=5)
+        lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=5)
         lsmc.pathwise_bs_greeks_ad()
         return [s, lsmc.bs_price_ad, lsmc.bs_delta_ad, lsmc.bs_vega_ad]
 
@@ -33,14 +33,14 @@ def gen_LSMC_pathwise_data(t, spot, r, sigma, K, N, export_filepath):
     simulator = GBM(t=t, x0=spot, N=N, mu=r, sigma=sigma, use_av=True, seed=None)
     simulator.sim_exact()
     lsmc = LSMC(simulator=simulator, K=K, r=r, payoff_func=european_payoff, option_type='PUT')
-    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=True, deg=5)
+    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=5)
 
     tau = np.array([t if ~np.isnan(t) else 1.0 for t in lsmc.pathwise_opt_stopping_time])
     df = np.exp(-r * tau)
 
     one = ~np.isnan(lsmc.pathwise_opt_stopping_time)
     S_tau = np.sum(lsmc.X[1:] * lsmc.opt_stopping_rule, axis=0)
-    payoff = np.sum(lsmc.payoff[1:] * lsmc.opt_stopping_rule, axis=0)
+    payoff = df * np.sum(lsmc.payoff[1:] * lsmc.opt_stopping_rule, axis=0)
     delta = - df * S_tau / spot * one
 
     out = np.vstack([
@@ -64,17 +64,33 @@ if __name__ == '__main__':
     K = 40
     M = 52
     N = 100000
-    r = 0.06
+    r = 0.00
     sigma = 0.2
-    size = 8192
-    num_std = 5
-
+    size = 128
 
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
-    vec_spot = np.random.default_rng().uniform(low=x0*(1-num_std*sigma), high=x0*(1+num_std*sigma), size=size)
+    vec_spot = np.random.default_rng().uniform(low=x0*(1-3*sigma), high=x0*(1+1*sigma), size=size)
 
-    #export_filepath = get_data_path('LSMC_pathwise_bs_ad.csv')
+    export_filepath = get_data_path('LSMC_pathwise_bs_ad_v2.csv')
     #print(gen_LSMC_data(t=t, vec_spot=vec_spot, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
 
-    export_filepath = get_data_path('LSMC_pathwise.csv')
-    print(gen_LSMC_pathwise_data(t=t, spot=x0, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
+    import matplotlib.pyplot as plt
+    X = np.loadtxt(export_filepath, delimiter=',')
+    spot = X[:, 0]
+    price = X[:, 1]
+    delta = X[:, 2]
+    vega = X[:, 3]
+
+    fig, ax = plt.subplots(nrows=3, sharex='all')
+    ax[0].scatter(spot, price, alpha=0.5, color='black')
+    ax[1].scatter(spot, delta, alpha=0.5, color='blue')
+    ax[2].scatter(spot, vega, alpha=0.5, color='green')
+    ax[0].set_ylabel('Price')
+    ax[1].set_ylabel('Delta')
+    ax[2].set_ylabel('Vega')
+    plt.show()
+
+    #export_filepath = get_data_path('LSMC_pathwise_v2.csv')
+    #print(gen_LSMC_pathwise_data(t=t, spot=x0, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
+
+
