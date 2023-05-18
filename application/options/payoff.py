@@ -1,7 +1,7 @@
 import numpy as np
 
-def european_payoff(x, K, type):
-    type = type.upper()
+def european_payoff(x, K, option_type):
+    type = option_type.upper()
 
     if type == 'CALL':
         return np.maximum(x-K, 0.0)
