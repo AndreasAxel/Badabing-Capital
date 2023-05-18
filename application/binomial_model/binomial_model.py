@@ -16,7 +16,7 @@ def binomial_tree(K, T, S0, r, M, u, d, payoff_func, option_type='PUT', eur_amr=
     :param payoff_func:     Payoff function to be called
     :param option_type:     'PUT' / 'CALL'
     :param eur_amr:         'EUR' / 'AMR'
-    :return:                Option price and delta (both at time 0)
+    :return:                Option price and delta (both at time 0), and early exercise boundary
     """
     # Auxiliary variables
     dt = T / M
@@ -24,10 +24,12 @@ def binomial_tree(K, T, S0, r, M, u, d, payoff_func, option_type='PUT', eur_amr=
     q = (a - d) / (u - d)
     df = np.exp(-r * dt)
 
-    # Initialise stock prices at expiry, and option payoff
+    # Initialise stock prices and option payoff at expiry; delta and early exercise boundary
     S = S0 * d ** (np.arange(M, -1, -1)) * u ** (np.arange(0, M + 1, 1))
     V = payoff_func(S, K, option_type=option_type)
     delta = np.nan
+    B = np.full(shape=(M+1,), fill_value=np.nan)
+    B[M] = K
 
     # Backward recursion through the tree
     for i in np.arange(M - 1, -1, -1):
@@ -35,21 +37,26 @@ def binomial_tree(K, T, S0, r, M, u, d, payoff_func, option_type='PUT', eur_amr=
         V[:i + 1] = df * (q * V[1:i + 2] + (1 - q) * V[0:i + 1])
         V = V[:-1]
         if eur_amr == 'AMR':
-            V = np.maximum(V, payoff_func(S, K, option_type=option_type))
+            payoff = payoff_func(S, K, option_type=option_type)
+            ex = V < payoff
+            if np.sum(ex) > 0:
+                B[i] = np.max(S[ex])
+            V = np.maximum(V, payoff)
 
         if i == 1:
             delta = (V[0] - V[1]) / (S[0] - S[1])
 
-    return V[0], delta
+    return V[0], delta, B
 
 
 def binomial_tree_bs(K, T, S0, r, sigma, M, payoff_func, option_type='PUT', eur_amr='EUR'):
     u = np.exp(sigma * np.sqrt(T / M))
-    d = np.exp(-sigma * np.sqrt(T / M))
+    d = 1/u
     return binomial_tree(K, T, S0, r, M, u, d, payoff_func, option_type, eur_amr)
 
 
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
     M = 5000
     T = 1.0
     r = 0.06
@@ -62,4 +69,12 @@ if __name__ == '__main__':
     u = np.exp(sigma * np.sqrt(T / M))
     d = np.exp(-sigma * np.sqrt(T / M))
 
-    print(binomial_tree(K, T, S0, r, M, u, d, european_payoff, option_type='PUT', eur_amr='AMR'))
+    price, delta, eeb = binomial_tree(K, T, S0, r, M, u, d, european_payoff, option_type=option_type, eur_amr=eur_amr)
+
+    print(price, delta)
+
+    plt.plot(np.linspace(0, T, M+1, True), eeb)
+    plt.title('Early Exercise Boundary')
+    plt.show()
+
+

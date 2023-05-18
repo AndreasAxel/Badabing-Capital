@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import bisect
 from application.options.payoff import european_payoff
 from application.simulation.sim_gbm import GBM
 from application.Longstaff_Schwartz.utils.fit_predict import *
@@ -29,6 +30,7 @@ class LSMC():
         self.K = K
         self.r = r
 
+
         self.payoff_func = payoff_func
         self.option_type = option_type
 
@@ -45,6 +47,8 @@ class LSMC():
         self.cashflow[self.M, ] = self.payoff[self.M, :]
         self.stopping_rule = np.zeros_like(self.X).astype(dtype=bool)
         self.stopping_rule[self.M, :] = self.payoff[self.M, :] > 0
+        self.early_exercise_boundary = np.full(shape=(self.M + 1,), fill_value=np.nan)
+        self.early_exercise_boundary[-1] = K
 
         # LSMC results (price and optimal stopping)
         self.price = None
@@ -71,7 +75,7 @@ class LSMC():
         self.pred_func = pred_func
 
         for j in range(self.M - 1, 0, -1):
-            itm = self.payoff[j, :] > 0 #if regress_only_itm else np.ones_like(self.payoff[j, :]).astype(dtype=bool)
+            itm = self.payoff[j, :] > 0
 
             # If no paths are ITM then use all paths as we cannot regress on an empty array
             if np.sum(itm) == 0.0:
@@ -85,12 +89,14 @@ class LSMC():
             EV_cont = np.zeros((self.N,))
             EV_cont[itm] = np.maximum(pred, 0.0)    # Cannot have negative continuation value
 
-
             # Determine whether is it optimal to exercise or continue. Update values accordingly
             self.stopping_rule[j, :] = self.payoff[j, :] > EV_cont + self.epsilon
             self.cashflow[j, :] = np.where(self.stopping_rule[j, :],
                                            self.payoff[j, :],                     # Value of exercising
                                            self.cashflow[j + 1, :] * self.df[j])  # Value of continuation
+
+            # Determine early exercise boundary
+            self.early_exercise_boundary[j] = np.max(self.X[j, self.stopping_rule[j]])
 
         # Calculate outputs
         self.price = np.mean(self.cashflow[1, :] * self.df[0])
@@ -184,8 +190,19 @@ if __name__ == '__main__':
 
     for deg in range(9, 10):
         LSMC_gbm = LSMC(simulator, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
-        LSMC_gbm.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=True, deg=deg)
+        LSMC_gbm.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg)
         LSMC_gbm.pathwise_bs_greeks_ad()
 
         print('deg = {}: Price = {:.4f}, Delta = {:.4f}, Vega = {:.4f}'.format(
             deg, LSMC_gbm.price, LSMC_gbm.bs_delta_ad, LSMC_gbm.bs_vega_ad))
+
+    # Example of Early Exercise boundary
+    import matplotlib.pyplot as plt
+    x0 = np.linspace(K*(1-2*sigma), K, N, endpoint=True)
+    simulator = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=use_av, seed=seed)
+    simulator.sim_exact()
+    LSMC_gbm = LSMC(simulator, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
+    LSMC_gbm.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg)
+    plt.plot(t, LSMC_gbm.early_exercise_boundary)
+    plt.title('Early Exercise Boundary')
+    plt.show()

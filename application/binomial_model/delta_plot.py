@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     # Vectorize function
     vfunc = np.vectorize(binomial_tree_bs)
-    price, delta = vfunc(K=K, T=T, S0=spot, r=r, sigma=sigma, M=M, payoff_func=european_payoff,
+    price, delta, eeb = vfunc(K=K, T=T, S0=spot, r=r, sigma=sigma, M=M, payoff_func=european_payoff,
                          option_type=option_type, eur_amr=eur_amr)
 
     # Plot results
