@@ -115,13 +115,12 @@ class LSMC():
         bs_price_ad = 0.0
         bs_delta_ad = 0.0
         bs_vega_ad = 0.0
-        count = 0
+
         # Calculate "contribution" from each path
         for p in range(self.N):
             idx = self.pathwise_opt_stopping_idx[p]
             if np.isnan(idx):
                 continue
-            count += 1
             idx = int(idx)
             tau = self.t[idx]
             X_tau = self.X[idx, p]
@@ -133,7 +132,7 @@ class LSMC():
             #bs_delta_ad += - X_tau * np.exp(-self.r * t[idx]) / self.X[0, p]
             bs_delta_ad += -np.exp((self.r - 0.5 * self.sigma**2) * tau + self.sigma * W_tau)
             bs_vega_ad += -X_tau * (-self.sigma * tau)
-        #print(count)
+
         # Results are the average across each path
         self.bs_price_ad = bs_price_ad / self.N
         self.bs_delta_ad = bs_delta_ad / self.N
