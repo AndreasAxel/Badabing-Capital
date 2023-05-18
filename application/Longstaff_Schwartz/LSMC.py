@@ -55,14 +55,13 @@ class LSMC():
         self.bs_delta_ad = None
         self.bs_vega_ad = None
 
-    def run_backwards(self, fit_func, pred_func, regress_only_itm=True, *args, **kwargs):
+    def run_backwards(self, fit_func, pred_func, *args, **kwargs):
         """
         Iterates backwards in time using the LSMC algorithm.
 
         :param fit_func         Function for fitting the (expected) value of value of continuation
         :param pred_func        Function for predicting the (expected) value of continuation
-        :param regress_only_itm: Use only In-The-Money paths in fit- and predict-statement
-                                 According to Longstaff & Schwart's article this improves efficiency and computation time.
+
         :param args:            Arguments passed to fit and predict function
         :param kwargs:          Keyword arguments passed to fit and predict function
         """
@@ -70,7 +69,9 @@ class LSMC():
         self.pred_func = pred_func
 
         for j in range(self.M - 1, 0, -1):
-            itm = self.payoff[j, :] > 0 if regress_only_itm else np.ones_like(self.payoff[j, :]).astype(dtype=bool)
+            itm = self.payoff[j, :] > 0 #if regress_only_itm else np.ones_like(self.payoff[j, :]).astype(dtype=bool)
+            if len(itm) == 0:
+                itm = np.ones_like(self.payoff[j, :])
 
             # Fit prediction model
             fit = fit_func(self.X[j, itm], self.cashflow[j + 1, itm] * self.df[j], *args, **kwargs)
@@ -78,7 +79,7 @@ class LSMC():
             # Predict value of continuation
             pred = list(pred_func(self.X[j, itm], fit))
             EV_cont = np.zeros((self.N,))
-            EV_cont[itm] = pred
+            EV_cont[itm] = np.maximum(pred, 0.0)
 
             # Determine whether is it optimal to exercise or continue. Update values accordingly
             self.stopping_rule[j, :] = self.payoff[j, :] > EV_cont
