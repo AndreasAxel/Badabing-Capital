@@ -28,6 +28,8 @@ def ISD(N, x0, alpha, seed=None):
 
 
 if __name__ == '__main__':
+    plot = True
+
     t0 = 0.0
     T = 1.0
     x0 = 40.0
@@ -36,40 +38,31 @@ if __name__ == '__main__':
     r = 0.06
     sigma = 0.2
     K = 40.0
-    seed = None
+    seed = 1234
     deg_lsmc = 9
     deg_stentoft = 9
     option_type = 'PUT'
-
-    alpha = 5.0
-
+    alpha = 25
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
 
+    ## Calc. American Option price with Letourneau & Stentoft
     # Simulate paths (with Initial State Dispersion)
     x_isd = ISD(N=N, x0=x0, alpha=alpha)
     X = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, seed=seed, use_av=True)
     X.sim_exact()
-
-    # LSMC
+    # LSMC method for cashflows & stopping times
     lsmc = LSMC(simulator=X, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
     lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg_lsmc)
 
-    # Get cashflow at stopping-time
-    cf = lsmc.payoff[1:]
-    cf_tau = np.zeros(N)
-    cf_tau[~np.isnan(lsmc.pathwise_opt_stopping_idx)] = cf[lsmc.opt_stopping_rule]
-
+    cf = lsmc.payoff
+    cf = np.sum((cf * lsmc.opt_stopping_rule), axis=0)
     # Calculate discount factor
     df = [np.exp(-r*tau) if ~np.isnan(tau) else 0.0 for tau in lsmc.pathwise_opt_stopping_time]
-    # or "total" discounting?
-    # df = np.exp(-r*T)
+    cf_pv = cf * df
 
-    # Calculate discounted cashflow (present value)
-    cf_pv = cf_tau * df
 
     # Compute price and greeks from estimates                           
     s0 = x0 # Spot value
-
     coef_price = fit_poly(x=x_isd - x0, y=cf_pv, deg=deg_stentoft)  # coefficients `b`
     price = pred_poly(x=s0 - x0, fit=coef_price)
 
@@ -80,3 +73,39 @@ if __name__ == '__main__':
     gamma = pred_poly(x=s0 - x0, fit=coef_gamma)
 
     print('price = {}, delta = {}, gamma = {}'.format(price, delta, gamma))
+
+    def forPlotting(alpha, N, M, x0, t, r, K, sigma, seed, deg_lsmc):
+        t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
+        x_isd = ISD(N=N, x0=x0, alpha=alpha)
+        X = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, seed=seed, use_av=True)
+        X.sim_exact()
+        lsmc = LSMC(simulator=X, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
+        lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg_lsmc)
+
+        # get cash flows
+        cf = lsmc.payoff
+        # vector of stopped cash flows
+        cf = np.sum((cf * lsmc.opt_stopping_rule), axis=0)
+        # discounting pathwise w/ stopping time
+        df = [np.exp(-r * tau) if ~np.isnan(tau) else 0.0 for tau in lsmc.pathwise_opt_stopping_time]
+        cf = cf * df
+
+        x_isd = x_isd[~np.isnan(lsmc.pathwise_opt_stopping_idx)]
+        cf = cf[~np.isnan(lsmc.pathwise_opt_stopping_idx)]
+
+        return x_isd, cf
+
+
+    if plot:
+        import matplotlib.pyplot as plt
+        alpha1, alpha2 = 0.5, 25
+        x,y = forPlotting(alpha1, N, M, x0, t, r, K, sigma, seed, deg_lsmc)
+        x2, y2 = forPlotting(alpha2, N, M, x0, t, r, K, sigma, seed, deg_lsmc)
+
+        fig, (ax1, ax2) = plt.subplots(1,2)
+        fig.suptitle('Payoff dispersion, N={}'.format(N))
+        ax1.scatter(x,y, marker='o', alpha=0.5, s=2)
+        ax1.set_xlabel('Discounted payoff for alpha = {}'.format(alpha1))
+        ax2.scatter(x2, y2, marker='o', alpha=0.5, s=2)
+        ax2.set_xlabel('Discounted payoff for alpha = {}'.format(alpha2))
+        plt.show()
