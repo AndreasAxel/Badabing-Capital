@@ -120,7 +120,6 @@ if __name__ == '__main__':
                              deg_lsmc=deg_lsmc,
                              deg_stentoft=deg_stentoft,
                              option_type=option_type,
-                             alpha=alpha,
                              x_isd=x_isd)
         export_filepath = get_data_path('letourneauStentoft_data.csv')
         gen_Letourneau_data(spot=x_isd, fitted=fitted, N=N, export_filepath=export_filepath)

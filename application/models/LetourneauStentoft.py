@@ -6,15 +6,13 @@ from application.options.payoff import european_payoff
 
 
 def ISD(N, x0, alpha, seed=None):
-    """
+    """ Cf. Latourneau & Stentoft (2022)
     Creates N initially state dispersed variables (ISD).
-    With reference to Latourneau & Stentoft (2023)
 
     :param N:       no. paths
     :param x0:      init. value
     :param alpha:   band width dispersion
     :param seed:    seed
-
     :return:        size N vector of state dispersed vars around x0
     """
     vecUnif = np.random.default_rng(seed=seed).uniform(low=0, high=1, size=N)
@@ -28,9 +26,30 @@ def ISD(N, x0, alpha, seed=None):
 
 
 def disperseFit(t0, T, x0, x_isd, N, M, r, sigma,K, seed,
-                deg_lsmc, deg_stentoft, option_type,
+                deg_lsmc, deg_stentoft, option_type):
+    """
+    First step of naive method cf. Latourneau & Stentoft (2022).
 
-                alpha = 25, *args, **kwargs):
+    step 0: simulates GBM paths using initial state dispersion
+    step 1: Runs Longstaff-Schwartz method to obtain cashflows and optimal stopping
+    step 2: Runs a cross-sectional regression of the cashflows on the distance from the dispersed paths to the spot
+
+    :param t0:              Time-0
+    :param T:               Maturity
+    :param x0:              Spot
+    :param x_isd:           Vector of initial state dispersed GBMs
+    :param N:               Number of paths
+    :param M:               Number of discretization
+    :param r:               Risk free rate
+    :param sigma:           Volatility
+    :param K:               Strike
+    :param seed:            Seed for simulations
+    :param deg_lsmc:        Order of degree of Longstaff-Schwartz fit
+    :param deg_stentoft:    Order of degree of Letourneau & Stentoft fit
+    :param option_type:     Type of option to be priced
+    :return:                Spot, fit price, fit delta, fit gamma
+    """
+
 
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
     X = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, seed=seed, use_av=True)
@@ -51,14 +70,18 @@ def disperseFit(t0, T, x0, x_isd, N, M, r, sigma,K, seed,
 
     return x0, coef_price, coef_delta, coef_gamma
 
-def Letourneau( spot, x0, priceFit, deltaFit, gammaFit, *args, **kwargs):
+def Letourneau( spot, x0, priceFit, deltaFit, gammaFit):
     """
-    :param alpha:
-    :param N:
-    :param deg_stentoft:
-    :param args:
-    :param kwargs:
-    :return:
+    Second step of naive method cf. Latourneau & Stentoft (2022)
+
+    Computes Price, Delta & Gamma using previously fitted coefficients using method 'disperseFit'
+
+    :param spot:        "Observed" spot
+    :param x0:          Spot used to train LSMC
+    :param priceFit:    Coefficient fit for price from 'disperseFit'
+    :param deltaFit:    Coefficient fit for delta from 'disperseFit'
+    :param gammaFit:    Coefficient fit for gamma from 'disperseFit'
+    :return:            Option price, delta, gamma
     """
 
     price = pred_poly(x=spot - x0, fit=priceFit)
@@ -70,7 +93,7 @@ def Letourneau( spot, x0, priceFit, deltaFit, gammaFit, *args, **kwargs):
 
 
 if __name__ == '__main__':
-    plot = True
+    plot = False
 
     t0 = 0.0
     T = 1.0
@@ -99,45 +122,12 @@ if __name__ == '__main__':
                          deg_lsmc=deg_lsmc,
                          deg_stentoft=deg_stentoft,
                          option_type=option_type,
-                         alpha=alpha,
                          x_isd=x_isd)
 
-    import matplotlib.pyplot as plt
-    plt.scatter(x=delta, y=binDelta, marker='o')
-    plt.show()
+    print("Letourneau \n",
+          "price, delta, gamma\n",
+          Letourneau(spot=40, x0=fitted[0], priceFit=fitted[1], deltaFit=fitted[2], gammaFit=fitted[3]))
 
-    """
-    t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
-
-    ## Calc. American Option price with Letourneau & Stentoft
-    # Simulate paths (with Initial State Dispersion)
-    x_isd = ISD(N=N, x0=x0, alpha=alpha)
-    X = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, seed=seed, use_av=True)
-    X.sim_exact()
-    # LSMC method for cashflows & stopping times
-    lsmc = LSMC(simulator=X, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
-    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg_lsmc)
-
-    cf = lsmc.payoff
-    cf = np.sum((cf * lsmc.opt_stopping_rule), axis=0)
-    # Calculate discount factor
-    df = [np.exp(-r*tau) if ~np.isnan(tau) else 0.0 for tau in lsmc.pathwise_opt_stopping_time]
-    cf_pv = cf * df
-
-
-    # Compute price and greeks from estimates                           
-    s0 = x0 # Spot value
-    coef_price = fit_poly(x=x_isd - x0, y=cf_pv, deg=deg_stentoft)  # coefficients `b`
-    price = pred_poly(x=s0 - x0, fit=coef_price)
-
-    coef_delta = np.polyder(coef_price, 1)
-    delta = pred_poly(x=s0 - x0, fit=coef_delta)
-
-    coef_gamma = np.polyder(coef_price, 2)
-    gamma = pred_poly(x=s0 - x0, fit=coef_gamma)
-
-    print('price = {}, delta = {}, gamma = {}'.format(price, delta, gamma))
-    """
     def forPlotting(alpha, N, M, x0, t0, r, K, sigma, seed, deg_lsmc):
         t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
         x_isd = ISD(N=N, x0=x0, alpha=alpha)
