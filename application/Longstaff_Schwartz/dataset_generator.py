@@ -2,6 +2,7 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 from application.utils.path_utils import get_data_path
 from application.models.LetourneauStentoft import *
+from application.binomial_model.binomial_model import *
 
 
 def gen_LSMC_data(t, vec_spot, r, sigma, K, N, export_filepath):
@@ -74,6 +75,23 @@ def gen_Letourneau_data(spot, fitted, N, export_filepath):
     return out
 
 
+def gen_binomial(vec_spot, K, T, r, sigma, M, export_filepath):
+
+    def calc(s):
+        p, d, _ = binomial_tree_bs(K=K, T=T, S0=s, r=r, sigma=sigma, M=M, payoff_func=european_payoff,
+                                   option_type='PUT', eur_amr='AMR')
+        return [s, p, d]
+
+    out = Parallel(n_jobs=-1)(delayed(calc)(s) for s in tqdm(vec_spot))
+    out = np.vstack(out)
+
+    np.savetxt(export_filepath,
+               out,
+               delimiter=",",
+               header="SPOT, PRICE, DELTA")
+    return out
+
+
 
 if __name__ == '__main__':
     # Parameters
@@ -95,11 +113,14 @@ if __name__ == '__main__':
     #vec_spot = np.random.default_rng().uniform(low=x0*(1-3*sigma), high=x0*(1+1*sigma), size=size)
     x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
 
-    export_filepath = get_data_path('LSMC_pathwise_ISD.csv')
-    print(gen_LSMC_pathwise_data(t=t, spot=x_isd, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
+    #export_filepath = get_data_path('LSMC_pathwise_ISD.csv')
+    #print(gen_LSMC_pathwise_data(t=t, spot=x_isd, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
+
+    export_filepath = get_data_path('binomial_ISD.csv')
+    gen_binomial(vec_spot=x_isd, K=K, T=T, r=r, sigma=sigma, M=2500, export_filepath=export_filepath)
 
 
-    letourneauExport = True
+    letourneauExport = False
 
     if letourneauExport:
         deg_lsmc = 9
@@ -121,6 +142,7 @@ if __name__ == '__main__':
         export_filepath = get_data_path('letourneauStentoft_data.csv')
         gen_Letourneau_data(spot=x_isd, fitted=fitted, N=N, export_filepath=export_filepath)
 
+    """
     import matplotlib.pyplot as plt
     X = np.loadtxt(export_filepath, delimiter=',')
     spot = X[:, 0]
@@ -140,3 +162,4 @@ if __name__ == '__main__':
     #export_filepath = get_data_path('LSMC_pathwise_v2.csv')
     #print(gen_LSMC_pathwise_data(t=t, spot=x0, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
 
+    """
