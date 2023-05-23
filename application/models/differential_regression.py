@@ -52,8 +52,7 @@ if __name__ == '__main__':
     #idx = np.random.default_rng().integers(low=0, high=66000, size=10000)
 
 
-    X_train, z_train, y_train, X_test, z_test, y_test = data_preprocessing(data=data, compute_z=True)
-
+    X_train, y_train, z_train, X_test, y_test, z_test = data_preprocessing(data=data, compute_z=True)
 
     # compute classical polynomial predictions
     classic_pred = polynomial_regression(X_train, y_train, X_test, deg=5)
