@@ -96,7 +96,8 @@ class LSMC():
                                            self.cashflow[j + 1, :] * self.df[j])  # Value of continuation
 
             # Determine early exercise boundary
-            self.early_exercise_boundary[j] = np.max(self.X[j, self.stopping_rule[j]])
+            if np.sum(self.stopping_rule[j]) > 0:
+                self.early_exercise_boundary[j] = np.max(self.X[j, self.stopping_rule[j]])
 
         # Calculate outputs
         self.price = np.mean(self.cashflow[1, :] * self.df[0])
@@ -176,7 +177,7 @@ if __name__ == '__main__':
     r = 0.06
     t0 = 0.0
     T = 1.0
-    N = 100000
+    N = 500000
     M = 50
     sigma = 0.2
     seed = 1234
