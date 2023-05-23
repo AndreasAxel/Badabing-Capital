@@ -52,7 +52,7 @@ if __name__ == '__main__':
     #idx = np.random.default_rng().integers(low=0, high=66000, size=10000)
 
 
-    X_train, y_train, z_train, X_test, y_test, z_test = data_preprocessing(data=data[:,:3], compute_z=True)
+    X_train, y_train, z_train, X_test, y_test, z_test = data_preprocessing(data=data[:,:3], compute_z=True, deriv_dim=1)
 
     # compute classical polynomial predictions
     classic_pred = polynomial_regression(X_train, y_train, X_test, deg=5)
@@ -70,6 +70,7 @@ if __name__ == '__main__':
                  labels=['classic regression', 'differential regression'])
     _ = plt.show()
 
+    """"""
     plt.figure(figsize=(7.5, 7.5))
     plot_results(ax=plt.gca(), y_test=z_test, y_pred=[z_pred],
                  title="delta values by differential regression, applied to test set")
