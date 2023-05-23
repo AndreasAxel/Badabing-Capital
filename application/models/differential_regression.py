@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import PolynomialFeatures
 from application.utils.path_utils import get_data_path
 from application.utils.visualize_results import plot_results
-from application.models.polynomial_regression import polynomial_regression
+from application.models.regressionModels import polynomial_regression
 from application.utils.data_management import data_preprocessing
 
 
