@@ -45,14 +45,14 @@ class DifferentialRegression:
 
 if __name__ == '__main__':
     # Load generated data
-    import_filename = get_data_path("LSMC_pathwise.csv")
+    import_filename = get_data_path("letourneauStentoft_data.csv")
     data = np.genfromtxt(import_filename, delimiter=",", skip_header=0)
 
     # Separate option prices from input data
     #idx = np.random.default_rng().integers(low=0, high=66000, size=10000)
 
 
-    X_train, y_train, z_train, X_test, y_test, z_test = data_preprocessing(data=data, compute_z=True)
+    X_train, y_train, z_train, X_test, y_test, z_test = data_preprocessing(data=data[:,:3], compute_z=True)
 
     # compute classical polynomial predictions
     classic_pred = polynomial_regression(X_train, y_train, X_test, deg=5)
