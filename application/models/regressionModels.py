@@ -46,7 +46,6 @@ class DifferentialRegression:
         phiTphi = np.tensordot(self.dphiw_, self.dphi_, axes=([0, 2], [0, 2]))
         phiTz = np.tensordot(self.dphiw_, z, axes=([0, 2], [0, 1])).reshape(-1, 1)
 
-        # note we use np.linalg.pinv (as opposed to np.linalg.inv) to perform safe (SVD) inversion, resilient to near singularities
         inv = np.linalg.inv(self.phi_.T @ self.phi_ + self.alpha * phiTphi)
         self.beta_ = (inv @ (self.phi_.T @ y + self.alpha * phiTz)).reshape(-1, 1)
 
@@ -90,10 +89,11 @@ def plot_multi(x_train, y_train, x_test, y_test, titles, preds, rmse=None):
 
 if __name__ == '__main__':
     # param setting
-    degree = 4
-    alpha = 0.5
-    sizeTrain = np.inf
+    degree = 5
+    alpha = 1
+    sizeTrain = 1000
     sizeTest = 1000
+    letourneau = False # include Letourneau comparison Delta prediction
 
     # Load generated, pathwise data
     pathwisePath = get_data_path("LSMC_pathwise_ISD.csv")
@@ -154,16 +154,28 @@ if __name__ == '__main__':
                             [lin_rmse, ridge_rmse, diff_rmse])
     plt.show()
 
+    if letourneau:
+        from application.models.LetourneauStentoft import ISD, disperseFit, Letourneau
+        fitted = disperseFit(t0=0,
+                         T=1,
+                         x0=40,
+                         N=10000,
+                         M=52,
+                         r=0.06,
+                         sigma=0.2,
+                         K=40,
+                         seed=1234,
+                         deg_lsmc=9,
+                         deg_stentoft=9,
+                         option_type='PUT',
+                         x_isd=ISD(N=10000, x0=40, alpha=25, seed=1234))
+        dataLetourneau = Letourneau(spot=x_test, x0=fitted[0], priceFit=fitted[1], deltaFit=fitted[2], gammaFit=fitted[3])
+
+
     plt.scatter(x_test, z_test, marker='o', color='red', s=2, alpha=0.5, label="true")
     plt.scatter(x_test, z_pred, marker='o', color='blue', s=2, alpha=0.5, label='predict')
+    if letourneau:
+        plt.scatter(x_test, dataLetourneau[1], color='orange', s=2, alpha=0.5, label='letourneau' )
     plt.title("∆ prediction using differential regression")
     plt.legend()
     plt.show()
-
-
-
-
-
-
-
-
