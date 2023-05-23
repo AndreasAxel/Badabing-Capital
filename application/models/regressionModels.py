@@ -1,28 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import PolynomialFeatures, Normalizer
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.utils import resample
 from application.utils.path_utils import get_data_path
-from sklearn.linear_model import LinearRegression, Ridge, RidgeCV
+from sklearn.linear_model import LinearRegression, RidgeCV
 
 """
 Based on Differential Regression Notebook
 
 https://github.com/differential-machine-learning
 """
-
-## classic linear regression
-def create_polynomial(degree = 5):
-    # Construct pipeline for given estimators
-    return make_pipeline(PolynomialFeatures(degree=degree, order='F'), Normalizer(norm="l2"), LinearRegression(n_jobs=-1))
-
-## Ridge regression with built-in cross-validation on alpha
-def make_ridge(degree=5, alpha=1.0):
-    return make_pipeline(PolynomialFeatures(degree=degree, order='F'), Normalizer(norm="l2"), Ridge(alpha=alpha))
-def make_ridge_cv(degree=5, min_alpha=1e-05, max_alpha=1e02, num_alphas=100):
-    alphas = np.exp(np.linspace(np.log(min_alpha), np.log(max_alpha), num_alphas))
-    return make_pipeline(PolynomialFeatures(degree=degree), Normalizer(norm="l2"), RidgeCV(alphas=alphas))
 
 ## Differential regression class
 class DifferentialRegression:
@@ -45,7 +33,7 @@ class DifferentialRegression:
         phiTz = np.tensordot(self.dphiw_, z, axes=([0, 2], [0, 1])).reshape(-1, 1)
 
         # note we use np.linalg.pinv (as opposed to np.linalg.inv) to perform safe (SVD) inversion, resilient to near singularities
-        inv = np.linalg.pinv(self.phi_.T @ self.phi_ + self.alpha * phiTphi, hermitian=True)
+        inv = np.linalg.inv(self.phi_.T @ self.phi_ + self.alpha * phiTphi)
         self.beta_ = (inv @ (self.phi_.T @ y + self.alpha * phiTz)).reshape(-1, 1)
 
     def predict(self, x, predict_derivs=False):
@@ -59,6 +47,21 @@ class DifferentialRegression:
         else:
             return y_pred
 
+
+## classic linear regression
+def create_polynomial(degree = 5):
+    # Construct pipeline for given estimators
+    return make_pipeline(PolynomialFeatures(degree=degree, order='F'),
+                         StandardScaler(),
+                         LinearRegression(n_jobs=-1))
+
+
+## Ridge regression with built-in cross-validation on alpha
+def make_ridge_cv(degree=5, min_alpha=1e-05, max_alpha=1e02, num_alphas=100):
+    alphas = np.exp(np.linspace(np.log(min_alpha), np.log(max_alpha), num_alphas))
+    return make_pipeline(PolynomialFeatures(degree=degree), StandardScaler(), RidgeCV(alphas=alphas))
+
+
 ## Functions for plotting
 def plot_one(ax, x_train, y_train, x_test, y_test, pred):
     ax.set_xlim(0, 75)
@@ -67,6 +70,7 @@ def plot_one(ax, x_train, y_train, x_test, y_test, pred):
     predict, = ax.plot(x_test, pred, 'b-', label="predict")
     correct, = ax.plot(x_test, y_test, 'r-', label="correct")
     return samples, predict, correct
+
 def plot_multi(x_train, y_train, x_test, y_test, titles, preds):
     nplots = len(preds)
     nrows = (nplots - 1) // 3 + 1
@@ -85,10 +89,10 @@ def plot_multi(x_train, y_train, x_test, y_test, titles, preds):
     return fig, lines
 
 
-
 if __name__ == '__main__':
     # param setting
-    degree = 4
+    degree = 5
+    alpha = 0.5
     sizeTrain = 300
     sizeTest = 1000
 
@@ -129,7 +133,7 @@ if __name__ == '__main__':
     alpha = ridgereg['ridgecv'].alpha_
 
     # differential regression
-    diffreg = DifferentialRegression(degree=degree)
+    diffreg = DifferentialRegression(degree=degree, alpha=alpha)
     diffreg.fit(x_train, y_train, z_train)
     diffpred, z_pred = diffreg.predict(x_test, predict_derivs=True)
 
@@ -145,7 +149,3 @@ if __name__ == '__main__':
     plt.title("∆ prediction using differential regression")
     plt.legend()
     plt.show()
-
-
-
-
