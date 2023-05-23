@@ -1,9 +1,7 @@
-import numpy as np
-import pandas as pd
 from LSMC import lsmc
 from application.options.payoff import european_payoff
 from application.simulation.sim_gbm import sim_gbm
-from application.Longstaff_Schwartz.utils.fit_predict import *
+from application.utils.LSMC_fit_predict import *
 import matplotlib.pyplot as plt
 
 

@@ -1,8 +1,3 @@
-import numpy as np
-from application.simulation.sim_gbm import GBM
-from application.Longstaff_Schwartz.LSMC import LSMC
-from application.Longstaff_Schwartz.utils.fit_predict import *
-from application.options.payoff import european_payoff
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from application.utils.path_utils import get_data_path
@@ -40,8 +35,8 @@ def gen_LSMC_pathwise_data(t, spot, r, sigma, K, N, export_filepath):
     df = np.exp(-r * tau)
 
     one = ~np.isnan(lsmc.pathwise_opt_stopping_time)
-    S_tau = np.sum(lsmc.X[1:] * lsmc.opt_stopping_rule, axis=0)
-    payoff = df * np.sum(lsmc.payoff[1:] * lsmc.opt_stopping_rule, axis=0)
+    S_tau = np.sum(lsmc.X * lsmc.opt_stopping_rule, axis=0)
+    payoff = df * np.sum(lsmc.payoff * lsmc.opt_stopping_rule, axis=0)
     delta = - df * S_tau / spot * one
 
     out = np.vstack([
@@ -55,8 +50,6 @@ def gen_LSMC_pathwise_data(t, spot, r, sigma, K, N, export_filepath):
                delimiter=",",
                header="SPOT, PAYOFF, DELTA")
     return out
-
-
 
 
 def gen_Letourneau_data(spot, fitted, N, export_filepath):
@@ -77,7 +70,7 @@ def gen_Letourneau_data(spot, fitted, N, export_filepath):
     np.savetxt(export_filepath,
                out,
                delimiter=",",
-               header="SPOT, PAYOFF, DELTA, GAMMA")
+               header="SPOT, PRICE, DELTA, GAMMA")
     return out
 
 
@@ -90,24 +83,28 @@ if __name__ == '__main__':
     K = 40
     M = 52
     N = 100000
-    r = 0.00
+    r = 0.06
     sigma = 0.2
-    size = 128
+    #size = 128
+    seed = 1234
+
+    alpha = 25
 
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
-    vec_spot = np.random.default_rng().uniform(low=x0*(1-3*sigma), high=x0*(1+1*sigma), size=size)
 
-    export_filepath = get_data_path('LSMC_pathwise_bs_ad_v2.csv')
-    #print(gen_LSMC_data(t=t, vec_spot=vec_spot, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
+    #vec_spot = np.random.default_rng().uniform(low=x0*(1-3*sigma), high=x0*(1+1*sigma), size=size)
+    x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
 
-    letourneauExport = False
+    export_filepath = get_data_path('LSMC_pathwise_ISD.csv')
+    print(gen_LSMC_pathwise_data(t=t, spot=x_isd, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
+
+
+    letourneauExport = True
 
     if letourneauExport:
-        alpha = 25
         deg_lsmc = 9
         deg_stentoft = 9
         option_type = 'PUT'
-        x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=None)
         fitted = disperseFit(t0=t0,
                              T=T,
                              x0=x0,
