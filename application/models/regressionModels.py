@@ -16,13 +16,6 @@ https://github.com/differential-machine-learning
 def create_polynomial(degree = 5):
     # Construct pipeline for given estimators
     return make_pipeline(PolynomialFeatures(degree=degree, order='F'), Normalizer(norm="l2"), LinearRegression(n_jobs=-1))
-"""
-def polynomial_regression(X_train, y_train, X_test, degree=5):
-    poly_reg = create_polynomial(degree=degree)
-    poly_reg = poly_reg.fit(X_train, y_train)
-    pred = poly_reg.predict(X_test)
-    return pred
-"""
 
 ## Ridge regression with built-in cross-validation on alpha
 def make_ridge(degree=5, alpha=1.0):
