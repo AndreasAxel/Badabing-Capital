@@ -1,8 +1,6 @@
-import numpy as np
-from scipy.optimize import bisect
 from application.options.payoff import european_payoff
 from application.simulation.sim_gbm import GBM
-from application.Longstaff_Schwartz.utils.fit_predict import *
+from application.utils.LSMC_fit_predict import *
 
 
 class LSMC():
@@ -29,7 +27,6 @@ class LSMC():
         self.sigma = simulator.sigma
         self.K = K
         self.r = r
-
 
         self.payoff_func = payoff_func
         self.option_type = option_type

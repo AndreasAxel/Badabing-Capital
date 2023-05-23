@@ -1,6 +1,6 @@
 import numpy as np
 from application.Longstaff_Schwartz.LSMC import LSMC
-from application.Longstaff_Schwartz.utils.fit_predict import fit_poly, pred_poly
+from application.utils.LSMC_fit_predict import fit_poly, pred_poly
 from application.simulation.sim_gbm import GBM
 from application.options.payoff import european_payoff
 
