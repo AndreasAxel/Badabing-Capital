@@ -71,7 +71,7 @@ class LSMC():
         self.fit_func = fit_func
         self.pred_func = pred_func
 
-        for j in range(self.M - 1, 0, -1):
+        for j in range(self.M - 1, -1, -1):
             itm = self.payoff[j, :] > 0
 
             # If no paths are ITM then use all paths as we cannot regress on an empty array
@@ -97,11 +97,11 @@ class LSMC():
                 self.early_exercise_boundary[j] = np.max(self.X[j, self.stopping_rule[j]])
 
         # Calculate outputs
-        self.price = np.mean(self.cashflow[1, :] * self.df[0])
+        self.price = np.mean(self.cashflow[0, :])
         self.opt_stopping_rule = np.cumsum(np.cumsum(self.stopping_rule, axis=0), axis=0) == 1
 
         self.pathwise_opt_stopping_idx = np.argmax(self.opt_stopping_rule, axis=0).astype(float)
-        self.pathwise_opt_stopping_idx[self.pathwise_opt_stopping_idx == 0.0] = np.nan  # Not exercising at time 0
+        #self.pathwise_opt_stopping_idx[self.pathwise_opt_stopping_idx == 0.0] = np.nan  # Not exercising at time 0
 
         self.pathwise_opt_stopping_time = [idx if np.isnan(idx)
                                            else self.t[int(idx)]
@@ -123,7 +123,7 @@ class LSMC():
         # Calculate "contribution" from each path
         for p in range(self.N):
             idx = self.pathwise_opt_stopping_idx[p]
-            if np.isnan(idx):
+            if idx == 0.0:
                 continue
             idx = int(idx)
             tau = self.t[idx]
@@ -144,29 +144,8 @@ class LSMC():
 
 
 if __name__ == '__main__':
-    """
-    # Example from the Longstaff-Schwartz article
-    K = 1.1
-    r = 0.06
-    t = np.linspace(start=0, stop=3, num=4)
-    option_type = 'PUT'
-    deg = 2
-
-    X = np.array((
-        [1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
-        [1.09, 1.16, 1.22, 0.93, 1.11, 0.76, 0.92, 0.88],
-        [1.08, 1.26, 1.07, 0.97, 1.56, 0.77, 0.84, 1.22],
-        [1.34, 1.54, 1.03, 0.92, 1.52, 0.90, 1.01, 1.34]
-    ))
-
-    LSMC_example = LSMC(t=t, X=X, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
-    LSMC_example.run_backwards(fit_func=fit_poly, pred_func=pred_poly, regress_only_itm=True, deg=deg)
-
-    print("Price Longstaff-Schwarz: ", LSMC_example.price)
-    print("Pathwise optimal stopping time: \n", LSMC_example.pathwise_opt_stopping_time)
-    print("Pathwise optimal stopping index: \n", LSMC_example.pathwise_opt_stopping_idx)
-    print(LSMC_example.opt_stopping_rule)
-    """
+    import matplotlib.pyplot as plt
+    from application.binomial_model.binomial_model import binomial_tree_bs
 
     # Simulating with GBM
     x0 = 40
@@ -174,8 +153,8 @@ if __name__ == '__main__':
     r = 0.06
     t0 = 0.0
     T = 1.0
-    N = 500000
-    M = 50
+    N = 100000
+    M = 52
     sigma = 0.2
     seed = 1234
     use_av = True
@@ -186,17 +165,20 @@ if __name__ == '__main__':
     simulator = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=use_av, seed=seed)
     simulator.sim_exact()
 
-    for deg in range(9, 10):
-        LSMC_gbm = LSMC(simulator, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
-        LSMC_gbm.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg)
-        LSMC_gbm.pathwise_bs_greeks_ad()
+    LSMC_gbm = LSMC(simulator, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
+    LSMC_gbm.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg)
+    LSMC_gbm.pathwise_bs_greeks_ad()
 
-        print('deg = {}: Price = {:.4f}, Delta = {:.4f}, Vega = {:.4f}'.format(
-            deg, LSMC_gbm.price, LSMC_gbm.bs_delta_ad, LSMC_gbm.bs_vega_ad))
+    print('LSMC (deg = {}): Price = {:.4f}, Delta = {:.4f}, Vega = {:.4f}'.format(
+        deg, LSMC_gbm.price, LSMC_gbm.bs_delta_ad, LSMC_gbm.bs_vega_ad))
+
+
+    price, delta, eeb = binomial_tree_bs(K=K, T=T, S0=x0, r=r, sigma=sigma, M=10000, payoff_func=european_payoff,
+                                         option_type=option_type, eur_amr='AMR')
+    print('BINOMIAL TREE:  Price = {:.4f}, Delta = {:.4f}'.format(price, delta))
 
     # Example of Early Exercise boundary
-    import matplotlib.pyplot as plt
-    x0 = np.linspace(K*(1-2*sigma), K, N, endpoint=True)
+    x0 = np.linspace(20, 60, N, endpoint=True)
     simulator = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=use_av, seed=seed)
     simulator.sim_exact()
     LSMC_gbm = LSMC(simulator, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
