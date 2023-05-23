@@ -3,9 +3,8 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.utils import resample
+from sklearn.linear_model import LinearRegression, RidgeCV
 from application.utils.path_utils import get_data_path
-from sklearn.linear_model import LinearRegression, Ridge, RidgeCV
-from application.utils.visualize_results import plot_results
 
 """
 Based on Differential Regression Notebook
