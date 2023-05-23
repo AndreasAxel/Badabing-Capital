@@ -3,34 +3,14 @@ from tqdm import tqdm
 from application.utils.path_utils import get_data_path
 from application.models.LetourneauStentoft import *
 from application.binomial_model.binomial_model import *
-
-
-def gen_LSMC_data(t, vec_spot, r, sigma, K, N, export_filepath):
-
-    def calc(s):
-        simulator = GBM(t=t, x0=s, N=N, mu=r, sigma=sigma, use_av=True, seed=None)
-        simulator.sim_exact()
-        lsmc = LSMC(simulator=simulator, K=K, r=r, payoff_func=european_payoff, option_type='PUT')
-        lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=5)
-        lsmc.pathwise_bs_greeks_ad()
-        return [s, lsmc.bs_price_ad, lsmc.bs_delta_ad, lsmc.bs_vega_ad]
-
-    out = Parallel(n_jobs=-1)(delayed(calc)(s) for s in tqdm(vec_spot))
-    out = np.vstack(out)
-
-    np.savetxt(export_filepath,
-               out,
-               delimiter=",",
-               header="SPOT, PRICE, DELTA, VEGA")
-
-    return out
+from application.utils.LSMC_fit_predict import *
 
 
 def gen_LSMC_pathwise_data(t, spot, r, sigma, K, N, export_filepath):
     simulator = GBM(t=t, x0=spot, N=N, mu=r, sigma=sigma, use_av=True, seed=None)
     simulator.sim_exact()
     lsmc = LSMC(simulator=simulator, K=K, r=r, payoff_func=european_payoff, option_type='PUT')
-    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=5)
+    lsmc.run_backwards(fit_func=fit_laguerre_poly, pred_func=pred_laguerre_poly, deg=5)
 
     tau = np.array([t if ~np.isnan(t) else 1.0 for t in lsmc.pathwise_opt_stopping_time])
     df = np.exp(-r * tau)
@@ -92,36 +72,50 @@ def gen_binomial(vec_spot, K, T, r, sigma, M, export_filepath):
     return out
 
 
-
 if __name__ == '__main__':
     # Parameters
     t0 = 0.0
     T = 1.0
     x0 = 40
     K = 40
-    M = 500
-    N = 1000
+    M = 52
+    N = 10000
     r = 0.06
     sigma = 0.2
-    #size = 128
     seed = 1234
 
     alpha = 25
 
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
-    s0 = np.linspace(20, 60, N, True)
-
-    #vec_spot = np.random.default_rng().uniform(low=x0*(1-3*sigma), high=x0*(1+1*sigma), size=size)
+    x_linear = np.linspace(20, 60, N, True)
     x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
 
-    #export_filepath = get_data_path('LSMC_pathwise_ISD.csv')
-    #print(gen_LSMC_pathwise_data(t=t, spot=x_isd, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath))
+    # ------------------------------------------------- #
+    # LSMC (pathwise)                                   #
+    # ------------------------------------------------- #
 
-    export_filepath = get_data_path('binomial.csv')
-    gen_binomial(vec_spot=s0, K=K, T=T, r=r, sigma=sigma, M=2500, export_filepath=export_filepath)
+    export_filepath = get_data_path('LSMC_pathwise_ISD.csv')
+    data_lsmc = gen_LSMC_pathwise_data(t=t, spot=x_isd, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath)
 
+    # Plot simulated pathwise deltas
+    #import matplotlib.pyplot as plt
+    #spot = data_lsmc[:, 0]
+    #pathwise_delta = data_lsmc[:, 2]
+    #plt.scatter(spot, pathwise_delta, alpha=0.05)
+    #plt.show()
 
-    letourneauExport = False
+    # ------------------------------------------------- #
+    # Binomial tree                                     #
+    # ------------------------------------------------- #
+
+    #export_filepath = get_data_path('binomial.csv')
+    #gen_binomial(vec_spot=x_linear, K=K, T=T, r=r, sigma=sigma, M=2500, export_filepath=export_filepath)
+
+    # ------------------------------------------------- #
+    # Letourneau & Stentoft                             #
+    # ------------------------------------------------- #
+
+    letourneauExport = True
 
     if letourneauExport:
         deg_lsmc = 9
