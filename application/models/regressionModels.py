@@ -93,6 +93,7 @@ if __name__ == '__main__':
     sizeTrain = 1000
     sizeTest = 1000
     letourneau = False # include Letourneau comparison Delta prediction
+    piecewise = True   # include piecewise linear regression in Delta prediction
 
     # Load generated, pathwise data
     pathwisePath = get_data_path("LSMC_pathwise_ISD.csv")
@@ -171,10 +172,28 @@ if __name__ == '__main__':
         dataLetourneau = Letourneau(spot=x_test, x0=fitted[0], priceFit=fitted[1], deltaFit=fitted[2], gammaFit=fitted[3])
 
 
+    #piece-wise regression
+    if piecewise:
+        import pwlf
+        myPWLF = pwlf.PiecewiseLinFit(x_train.reshape(sizeTrain), z_train.reshape(sizeTrain))
+        # fit the data for n line segments
+        res = myPWLF.fit(4)
+        # calculate slopes
+        slopes = myPWLF.calc_slopes()
+
+        # predict for the determined points
+        xHat = x_test.reshape(sizeTest)
+        zHat = myPWLF.predict(xHat)
+
+    deltaRmseDiff = np.sqrt(np.square(z_pred - z_test).mean()).round(4)
+    plt.scatter(x_train, z_train, marker='x', color='cyan', s=2, alpha=0.5, label='train')
     plt.scatter(x_test, z_test, marker='o', color='red', s=2, alpha=0.5, label="true")
-    plt.scatter(x_test, z_pred, marker='o', color='blue', s=2, alpha=0.5, label='predict')
+    plt.scatter(x_test, z_pred, marker='o', color='blue', s=2, alpha=0.5, label='diff, RMSE={}'.format(deltaRmseDiff))
+    if piecewise:
+        deltaRmsePw = np.sqrt(np.square(zHat - z_test).mean()).round(4)
+        plt.scatter(x_test, zHat, marker='o', color='green', s=2, alpha=0.5, label='pw, RMSE = {}'.format(deltaRmsePw))
     if letourneau:
         plt.scatter(x_test, dataLetourneau[1], color='orange', s=2, alpha=0.5, label='letourneau' )
-    plt.title("∆ prediction using differential regression")
+    plt.title("∆ predictions")
     plt.legend()
     plt.show()
