@@ -1,4 +1,5 @@
-
+from application.utils.path_utils import get_data_path
+from sklearn.utils import resample
 
 
 
@@ -6,6 +7,10 @@
 
 ### Initial requirements for code to work - START
 import tensorflow as tf2
+import numpy as np
+from tqdm import tqdm_notebook
+import time
+import matplotlib.pyplot as plt
 
 # disable eager execution etc
 tf = tf2.compat.v1
@@ -117,6 +122,18 @@ def vanilla_training_graph(input_dim, hidden_units, hidden_layers, seed):
     return inputs, labels, predictions, derivs_predictions, learning_rate, loss, optimizer.minimize(loss)
 
 
+# combined graph for valuation and differentiation
+def twin_net(input_dim, hidden_units, hidden_layers, seed):
+    # first, build the feedforward net
+    xs, (ws, bs), zs, ys = vanilla_net(input_dim, hidden_units, hidden_layers, seed)
+
+    # then, build its differentiation by backprop
+    xbar = backprop((ws, bs), zs)
+
+    # return input x, output y and differentials d_y/d_z
+    return xs, ys, xbar
+
+
 def diff_training_graph(
         # same as vanilla
         input_dim,
@@ -150,7 +167,159 @@ def diff_training_graph(
         learning_rate, loss, optimizer.minimize(loss)
 
 
+# basic data preparation
+epsilon = 1.0e-08
 
+
+def normalize_data(x_raw, y_raw, dydx_raw=None, crop=None):
+    # crop dataset
+    m = crop if crop is not None else x_raw.shape[0]
+    x_cropped = x_raw[:m]
+    y_cropped = y_raw[:m]
+    dycropped_dxcropped = dydx_raw[:m] if dydx_raw is not None else None
+
+    # normalize dataset
+    x_mean = x_cropped.mean(axis=0)
+    x_std = x_cropped.std(axis=0) + epsilon
+    x = (x_cropped - x_mean) / x_std
+    y_mean = y_cropped.mean(axis=0)
+    y_std = y_cropped.std(axis=0) + epsilon
+    y = (y_cropped - y_mean) / y_std
+
+    # normalize derivatives too
+    if dycropped_dxcropped is not None:
+        dy_dx = dycropped_dxcropped / y_std * x_std
+        # weights of derivatives in cost function = (quad) mean size
+        lambda_j = 1.0 / np.sqrt((dy_dx ** 2).mean(axis=0)).reshape(1, -1)
+    else:
+        dy_dx = None
+        lambda_j = None
+
+    return x_mean, x_std, x, y_mean, y_std, y, dy_dx, lambda_j
+
+
+# training loop for one epoch
+def vanilla_train_one_epoch(  # training graph from vanilla_training_graph()
+        inputs, labels, lr_placeholder, minimizer,
+        # training set
+        x_train, y_train,
+        # params, left to client code
+        learning_rate, batch_size, session):
+    m, n = x_train.shape
+
+    # minimization loop over mini-batches
+    first = 0
+    last = min(batch_size, m)
+    while first < m:
+        session.run(minimizer, feed_dict={
+            inputs: x_train[first:last],
+            labels: y_train[first:last],
+            lr_placeholder: learning_rate
+        })
+        first = last
+        last = min(first + batch_size, m)
+
+
+def diff_train_one_epoch(inputs, labels, derivs_labels,
+                         # graph
+                         lr_placeholder, minimizer,
+                         # training set, extended
+                         x_train, y_train, dydx_train,
+                         # params
+                         learning_rate, batch_size, session):
+    m, n = x_train.shape
+
+    # minimization loop, now with Greeks
+    first = 0
+    last = min(batch_size, m)
+    while first < m:
+        session.run(minimizer, feed_dict={
+            inputs: x_train[first:last],
+            labels: y_train[first:last],
+            derivs_labels: dydx_train[first:last],
+            lr_placeholder: learning_rate
+        })
+        first = last
+        last = min(first + batch_size, m)
+
+
+
+
+def train(description,
+          # neural approximator
+          approximator,
+          # training params
+          reinit=True,
+          epochs=100,
+          # one-cycle learning rate schedule
+          learning_rate_schedule=[(0.0, 1.0e-8),
+                                  (0.2, 0.1),
+                                  (0.6, 0.01),
+                                  (0.9, 1.0e-6),
+                                  (1.0, 1.0e-8)],
+          batches_per_epoch=16,
+          min_batch_size=256,
+          # callback function and when to call it
+          callback=None,  # arbitrary callable
+          callback_epochs=[]):  # call after what epochs, e.g. [5, 20]
+
+    # batching
+    batch_size = max(min_batch_size, approximator.m // batches_per_epoch)
+
+    # one-cycle learning rate sechedule
+    lr_schedule_epochs, lr_schedule_rates = zip(*learning_rate_schedule)
+
+    # reset
+    if reinit:
+        approximator.session.run(approximator.initializer)
+
+    # callback on epoch 0, if requested
+    if callback and 0 in callback_epochs:
+        callback(approximator, 0)
+
+    # loop on epochs, with progress bar (tqdm)
+    for epoch in range(epochs): #tqdm_notebook(range(epochs), desc=description):
+
+        # interpolate learning rate in cycle
+        learning_rate = np.interp(epoch / epochs, lr_schedule_epochs, lr_schedule_rates)
+
+        # train one epoch
+
+        if not approximator.differential:
+
+            vanilla_train_one_epoch(
+                approximator.inputs,
+                approximator.labels,
+                approximator.learning_rate,
+                approximator.minimizer,
+                approximator.x,
+                approximator.y,
+                learning_rate,
+                batch_size,
+                approximator.session)
+
+        else:
+
+            diff_train_one_epoch(
+                approximator.inputs,
+                approximator.labels,
+                approximator.derivs_labels,
+                approximator.learning_rate,
+                approximator.minimizer,
+                approximator.x,
+                approximator.y,
+                approximator.dy_dx,
+                learning_rate,
+                batch_size,
+                approximator.session)
+
+        # callback, if requested
+        if callback and epoch in callback_epochs:
+            callback(approximator, epoch)
+
+    # final callback, if requested
+    if callback and epochs in callback_epochs:
+        callback(approximator, epochs)
 
 
 class Neural_approximator():
@@ -223,7 +392,7 @@ class Neural_approximator():
         self.session = tf.Session(graph=self.graph)
 
         # prepare for training with m examples, standard or differential
-        def prepare(self,
+    def prepare(self,
                     m,
                     differential,
                     lam=1,  # balance cost between values and derivs
@@ -240,7 +409,7 @@ class Neural_approximator():
             self.m, self.n = self.x.shape
             self.build_graph(differential, lam, hidden_units, hidden_layers, weight_seed)
 
-        def train(self,
+    def train(self,
                   description="training",
                   # training params
                   reinit=True,
@@ -259,7 +428,7 @@ class Neural_approximator():
                   callback=None,  # arbitrary callable
                   callback_epochs=[]):  # call after what epochs, e.g. [5, 20]
 
-            train(description,
+        train(description,
                   self,
                   reinit,
                   epochs,
@@ -269,7 +438,7 @@ class Neural_approximator():
                   callback,
                   callback_epochs)
 
-        def predict_values(self, x):
+    def predict_values(self, x):
                 # scale
                 x_scaled = (x - self.x_mean) / self.x_std
                 # predict scaled
@@ -278,7 +447,7 @@ class Neural_approximator():
                 y = self.y_mean + self.y_std * y_scaled
                 return y
 
-        def predict_values_and_derivs(self, x):
+    def predict_values_and_derivs(self, x):
                 # scale
                 x_scaled = (x - self.x_mean) / self.x_std
                 # predict scaled
@@ -289,3 +458,160 @@ class Neural_approximator():
                 y = self.y_mean + self.y_std * y_scaled
                 dydx = self.y_std / self.x_std * dyscaled_dxscaled
                 return y, dydx
+
+
+
+if __name__ == '__main__':
+    # param setting
+    sizeTrain = [8192, 1024]
+    sizeTest = 1000
+
+    # Load generated, pathwise data
+    pathwisePath = get_data_path("LSMC_pathwise_ISD.csv")
+    dataPathwise = np.genfromtxt(pathwisePath, delimiter=",", skip_header=0)
+    # assigning datastructures
+    dataPathwise = resample(dataPathwise, n_samples=len(dataPathwise))
+
+    """
+    # resampled entire data to be sure cropping works
+    # assigning datastructures
+    if sizeTrain < len(dataPathwise):
+        dataPathwise = resample(dataPathwise, n_samples=sizeTrain)
+    """
+    x_train = dataPathwise[:, 0].reshape(-1, 1)
+    y_train = dataPathwise[:, 1].reshape(-1, 1)
+    z_train = dataPathwise[:, 2].reshape(-1, 1)
+
+
+
+
+    # Load Binomial data for reference
+    binomialPath = get_data_path("binomial_unif.csv")
+    dataBinomial = np.genfromtxt(binomialPath, delimiter=",", skip_header=0)
+    dataBinomial = dataBinomial[335:, :]
+    # assigning datastructures
+    dataBinomial = resample(dataBinomial, n_samples=len(dataBinomial))
+
+    """
+    # resampled entire data to be sure cropping works
+    if sizeTest < len(dataBinomial):
+        dataBinomial = resample(dataBinomial, n_samples=sizeTest)
+    """
+    x_test = dataBinomial[:sizeTest, 0].reshape(-1, 1)
+    y_test = dataBinomial[:sizeTest, 1].reshape(-1, 1)
+    z_test = dataBinomial[:sizeTest, 2].reshape(-1, 1)
+
+    # Learn neural approximation
+    regressor = Neural_approximator(x_raw=x_train, y_raw=y_train, dydx_raw=z_train)
+
+
+    predvalues = {}
+    preddeltas = {}
+
+    sizes = sizeTrain
+    weightSeed = None
+    deltidx = 0
+
+    for size in sizes:
+        print("\nsize %d" % size)
+
+        regressor.prepare(size, False, weight_seed=weightSeed) # Don't set differentials
+        t0 = time.time()
+        regressor.train("standard training")
+        predictions, deltas = regressor.predict_values_and_derivs(x_test)
+        predvalues[("standard", size)] = predictions
+        preddeltas[("standard", size)] = deltas[:, deltidx]
+        t1 = time.time()
+
+        regressor.prepare(size, True, weight_seed=weightSeed) # Set differentials
+        t0 = time.time()
+        regressor.train("differential training")
+        predictions, deltas = regressor.predict_values_and_derivs(x_test)
+        predvalues[("differential", size)] = predictions
+        preddeltas[("differential", size)] = deltas[:, deltidx]
+        t1 = time.time()
+
+
+    def graph(title,
+              predictions,
+              xAxis,
+              xAxisName,
+              yAxisName,
+              targets,
+              sizes,
+              computeRmse=False,
+              weights=None):
+
+        numRows = len(sizes)
+        numCols = 2
+
+        fig, ax = plt.subplots(numRows, numCols, squeeze=False)
+        fig.set_size_inches(4 * numCols + 1.5, 4 * numRows)
+
+        for i, size in enumerate(sizes):
+            ax[i, 0].annotate("size %d" % size, xy=(0, 0.5),
+                              xytext=(-ax[i, 0].yaxis.labelpad - 5, 0),
+                              xycoords=ax[i, 0].yaxis.label, textcoords='offset points',
+                              ha='right', va='center')
+
+        ax[0, 0].set_title("standard")
+        ax[0, 1].set_title("differential")
+
+        for i, size in enumerate(sizes):
+            for j, regType, in enumerate(["standard", "differential"]):
+
+                if computeRmse:
+                    errors = (predictions[(regType, size)] - targets)
+                    if weights is not None:
+                        errors /= weights
+                    rmse = np.sqrt((errors ** 2).mean(axis=0))
+                    t = "rmse %.2f" % rmse
+                else:
+                    t = xAxisName
+
+                ax[i, j].set_xlabel(t)
+                ax[i, j].set_ylabel(yAxisName)
+
+                ax[i, j].plot(xAxis, predictions[(regType, size)], 'co',
+                              markersize=2, markerfacecolor='white', label="predicted")
+                ax[i, j].plot(xAxis, targets, 'r.', markersize=0.5, label='targets')
+
+                ax[i, j].legend(prop={'size': 8}, loc='upper left')
+
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.9)
+        plt.suptitle("% s -- %s" % (title, yAxisName), fontsize=16)
+        plt.show()
+
+
+    # Show payoff predictions
+    graph(title="Pathwise_LSMC",
+          predictions=predvalues,
+          xAxis=x_test,
+          xAxisName="",
+          yAxisName="payoff",
+          targets=y_test,
+          sizes=sizes,
+          computeRmse=True,
+          weights=None
+          )
+
+    # Show predicted deltas
+    graph(title="Pathwise_LSMC",
+          predictions=preddeltas,
+          xAxis=x_test,
+          xAxisName="",
+          yAxisName="delta ∆",
+          targets=z_test,
+          sizes=sizes,
+          computeRmse=False,
+          weights=None
+          )
+
+
+
+
+
+
+
+
