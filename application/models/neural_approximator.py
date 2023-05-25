@@ -65,7 +65,7 @@ def vanilla_net(
     bs.append(tf.get_variable("b" + str(hidden_layers + 1), [1],
                               initializer=tf.zeros_initializer(), dtype=real_type))
     # eq. 3, l=L
-    zs.append(tf.nn.relu(zs[hidden_layers]) @ ws[hidden_layers + 1] + bs[hidden_layers + 1])
+    zs.append(tf.nn.softplus(zs[hidden_layers]) @ ws[hidden_layers + 1] + bs[hidden_layers + 1])
 
     # result = output layer
     ys = zs[hidden_layers + 1]
@@ -249,7 +249,7 @@ def train(description,
           approximator,
           # training params
           reinit=True,
-          epochs=500,
+          epochs=100,
           # one-cycle learning rate schedule
           learning_rate_schedule=[(0.0, 1.0e-8),
                                   (0.2, 0.1),
@@ -412,7 +412,7 @@ class Neural_approximator():
                   description="training",
                   # training params
                   reinit=True,
-                  epochs=500,
+                  epochs=100,
                   # one-cycle learning rate schedule
                   learning_rate_schedule=[
                       (0.0, 1.0e-8),
@@ -463,7 +463,7 @@ class Neural_approximator():
 if __name__ == '__main__':
     # Param setting
     seed = 1234
-    sizeTrain = [1024, 8192] # Plot predictions for each training number
+    sizeTrain = [128, 2048] # Plot predictions for each training number
     sizeTest = 100           # Number of test observations used for predictions
     spot_cutoff = False
 
@@ -502,12 +502,11 @@ if __name__ == '__main__':
     # Learn neural approximation
     regressor = Neural_approximator(x_raw=x_train, y_raw=y_train, dydx_raw=z_train)
 
-
     predvalues = {}
     preddeltas = {}
 
     sizes = sizeTrain
-    weightSeed = None
+    weightSeed = 1234
     deltidx = 0
 
     for size in sizes:
