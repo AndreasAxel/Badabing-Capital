@@ -78,8 +78,8 @@ if __name__ == '__main__':
     T = 1.0
     x0 = 40
     K = 40
-    M = 52
-    N = 10000
+    M = 252
+    N = 100000
     r = 0.06
     sigma = 0.2
     seed = 1234
@@ -94,8 +94,8 @@ if __name__ == '__main__':
     # LSMC (pathwise)                                   #
     # ------------------------------------------------- #
 
-    export_filepath = get_data_path('LSMC_pathwise_ISD.csv')
-    data_lsmc = gen_LSMC_pathwise_data(t=t, spot=x_isd, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath)
+    export_filepath = get_data_path('LSMC_pathwise.csv')
+    data_lsmc = gen_LSMC_pathwise_data(t=t, spot=x_linear, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath)
 
     # Plot simulated pathwise deltas
     #import matplotlib.pyplot as plt
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     # Letourneau & Stentoft                             #
     # ------------------------------------------------- #
 
-    letourneauExport = True
+    letourneauExport = False
 
     if letourneauExport:
         deg_lsmc = 9

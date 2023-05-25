@@ -3,14 +3,27 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.utils import resample
-from application.utils.path_utils import get_data_path
 from sklearn.linear_model import LinearRegression, RidgeCV
+from application.utils.path_utils import get_data_path
 
 """
 Based on Differential Regression Notebook
 
 https://github.com/differential-machine-learning
 """
+
+## classic linear regression
+def create_polynomial(degree = 5):
+    # Construct pipeline for given estimators
+    return make_pipeline(PolynomialFeatures(degree=degree, order='F'),
+                         StandardScaler(),
+                         LinearRegression(n_jobs=-1, fit_intercept=True))
+
+## Ridge regression with built-in cross-validation on alpha
+
+def make_ridge_cv(degree=5, min_alpha=1e-05, max_alpha=1e02, num_alphas=100):
+    alphas = np.exp(np.linspace(np.log(min_alpha), np.log(max_alpha), num_alphas))
+    return make_pipeline(PolynomialFeatures(degree=degree), StandardScaler(), RidgeCV(alphas=alphas))
 
 ## Differential regression class
 class DifferentialRegression:
@@ -32,7 +45,6 @@ class DifferentialRegression:
         phiTphi = np.tensordot(self.dphiw_, self.dphi_, axes=([0, 2], [0, 2]))
         phiTz = np.tensordot(self.dphiw_, z, axes=([0, 2], [0, 1])).reshape(-1, 1)
 
-        # note we use np.linalg.pinv (as opposed to np.linalg.inv) to perform safe (SVD) inversion, resilient to near singularities
         inv = np.linalg.inv(self.phi_.T @ self.phi_ + self.alpha * phiTphi)
         self.beta_ = (inv @ (self.phi_.T @ y + self.alpha * phiTz)).reshape(-1, 1)
 
@@ -47,31 +59,15 @@ class DifferentialRegression:
         else:
             return y_pred
 
-
-## classic linear regression
-def create_polynomial(degree = 5):
-    # Construct pipeline for given estimators
-    return make_pipeline(PolynomialFeatures(degree=degree, order='F'),
-                         StandardScaler(),
-                         LinearRegression(n_jobs=-1))
-
-
-## Ridge regression with built-in cross-validation on alpha
-def make_ridge_cv(degree=5, min_alpha=1e-05, max_alpha=1e02, num_alphas=100):
-    alphas = np.exp(np.linspace(np.log(min_alpha), np.log(max_alpha), num_alphas))
-    return make_pipeline(PolynomialFeatures(degree=degree), StandardScaler(), RidgeCV(alphas=alphas))
-
-
 ## Functions for plotting
-def plot_one(ax, x_train, y_train, x_test, y_test, pred):
+def plot_one(ax, x_train, y_train, x_test, y_test, pred, rmse=None):
     ax.set_xlim(0, 75)
     ax.set_ylim(-10, 35)
     samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="samples")
-    predict, = ax.plot(x_test, pred, 'b-', label="predict")
+    predict, = ax.plot(x_test, pred, 'b-', label="predict"+", rmse=%.4f" % rmse)
     correct, = ax.plot(x_test, y_test, 'r-', label="correct")
     return samples, predict, correct
-
-def plot_multi(x_train, y_train, x_test, y_test, titles, preds):
+def plot_multi(x_train, y_train, x_test, y_test, titles, preds, rmse=None):
     nplots = len(preds)
     nrows = (nplots - 1) // 3 + 1
     ncols = min(nplots, 3)
@@ -82,19 +78,22 @@ def plot_multi(x_train, y_train, x_test, y_test, titles, preds):
     lines = []
     for i, ax in enumerate(axs.flatten()):
         if i < nplots:
-            samples, predict, correct = plot_one(ax, x_train, y_train, x_test, y_test, preds[i])
+            samples, predict, correct = plot_one(ax, x_train, y_train, x_test, y_test, preds[i], rmse[i])
             lines.extend([samples, predict, correct])
             ax.legend()
             ax.set_title(titles[i])
     return fig, lines
 
 
+
 if __name__ == '__main__':
     # param setting
     degree = 5
-    alpha = 0.5
-    sizeTrain = 300
+    alpha = 1
+    sizeTrain = 1000
     sizeTest = 1000
+    letourneau = False # include Letourneau comparison Delta prediction
+    piecewise = True   # include piecewise linear regression in Delta prediction
 
     # Load generated, pathwise data
     pathwisePath = get_data_path("LSMC_pathwise_ISD.csv")
@@ -137,15 +136,64 @@ if __name__ == '__main__':
     diffreg.fit(x_train, y_train, z_train)
     diffpred, z_pred = diffreg.predict(x_test, predict_derivs=True)
 
+    # RMSE
+    lin_errors = linpred - y_test
+    lin_rmse = np.sqrt(np.square(lin_errors).mean())
+
+    ridge_errors = ridgepred - y_test
+    ridge_rmse = np.sqrt(np.square(ridge_errors).mean())
+
+    diff_errors = diffpred - y_test
+    diff_rmse = np.sqrt(np.square(diff_errors).mean())
+
     ## plotting
     print("Ridge regression alpha = %.4f" % alpha)
     fig, lines = plot_multi(x_train, y_train, x_test, y_test,
                             ["linear regression", "ridge regression", "differential regression"],
-                            [linpred, ridgepred, diffpred])
+                            [linpred, ridgepred, diffpred],
+                            [lin_rmse, ridge_rmse, diff_rmse])
     plt.show()
 
+    if letourneau:
+        from application.models.LetourneauStentoft import ISD, disperseFit, Letourneau
+        fitted = disperseFit(t0=0,
+                         T=1,
+                         x0=40,
+                         N=10000,
+                         M=52,
+                         r=0.06,
+                         sigma=0.2,
+                         K=40,
+                         seed=1234,
+                         deg_lsmc=9,
+                         deg_stentoft=9,
+                         option_type='PUT',
+                         x_isd=ISD(N=10000, x0=40, alpha=25, seed=1234))
+        dataLetourneau = Letourneau(spot=x_test, x0=fitted[0], priceFit=fitted[1], deltaFit=fitted[2], gammaFit=fitted[3])
+
+
+    #piece-wise regression
+    if piecewise:
+        import pwlf
+        myPWLF = pwlf.PiecewiseLinFit(x_train.reshape(sizeTrain), z_train.reshape(sizeTrain))
+        # fit the data for n line segments
+        res = myPWLF.fit(4)
+        # calculate slopes
+        slopes = myPWLF.calc_slopes()
+
+        # predict for the determined points
+        xHat = x_test.reshape(sizeTest)
+        zHat = myPWLF.predict(xHat)
+
+    deltaRmseDiff = np.sqrt(np.square(z_pred - z_test).mean()).round(4)
+    plt.scatter(x_train, z_train, marker='x', color='cyan', s=2, alpha=0.5, label='train')
     plt.scatter(x_test, z_test, marker='o', color='red', s=2, alpha=0.5, label="true")
-    plt.scatter(x_test, z_pred, marker='o', color='blue', s=2, alpha=0.5, label='predict')
-    plt.title("∆ prediction using differential regression")
+    plt.scatter(x_test, z_pred, marker='o', color='blue', s=2, alpha=0.5, label='diff, RMSE={}'.format(deltaRmseDiff))
+    if piecewise:
+        deltaRmsePw = np.sqrt(np.square(zHat - z_test).mean()).round(4)
+        plt.scatter(x_test, zHat, marker='o', color='green', s=2, alpha=0.5, label='pw, RMSE = {}'.format(deltaRmsePw))
+    if letourneau:
+        plt.scatter(x_test, dataLetourneau[1], color='orange', s=2, alpha=0.5, label='letourneau' )
+    plt.title("∆ predictions")
     plt.legend()
     plt.show()
