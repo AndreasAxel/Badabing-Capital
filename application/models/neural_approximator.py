@@ -117,6 +117,42 @@ def vanilla_training_graph(input_dim, hidden_units, hidden_layers, seed):
     return inputs, labels, predictions, derivs_predictions, learning_rate, loss, optimizer.minimize(loss)
 
 
+def diff_training_graph(
+        # same as vanilla
+        input_dim,
+        hidden_units,
+        hidden_layers,
+        seed,
+        # balance relative weight of values and differentials
+        # loss = alpha * MSE(values) + beta * MSE(greeks, lambda_j)
+        # see online appendix
+        alpha,
+        beta,
+        lambda_j):
+    # net, now a twin
+    inputs, predictions, derivs_predictions = twin_net(input_dim, hidden_units, hidden_layers, seed)
+
+    # placeholder for labels, now also derivs labels
+    labels = tf.placeholder(shape=[None, 1], dtype=real_type)
+    derivs_labels = tf.placeholder(shape=[None, derivs_predictions.shape[1]], dtype=real_type)
+
+    # loss, now combined values + derivatives
+    loss = alpha * tf.losses.mean_squared_error(labels, predictions) \
+           + beta * tf.losses.mean_squared_error(derivs_labels * lambda_j, derivs_predictions * lambda_j)
+
+    # optimizer, as vanilla
+    learning_rate = tf.placeholder(real_type)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+
+    # return all necessary tensors, including derivatives
+    # predictions and labels
+    return inputs, labels, derivs_labels, predictions, derivs_predictions, \
+        learning_rate, loss, optimizer.minimize(loss)
+
+
+
+
+
 class Neural_approximator():
     def __init__(self, x_raw, y_raw,
                  dydx_raw=None):  # derivatives labels,
@@ -232,3 +268,24 @@ class Neural_approximator():
                   min_batch_size,
                   callback,
                   callback_epochs)
+
+        def predict_values(self, x):
+                # scale
+                x_scaled = (x - self.x_mean) / self.x_std
+                # predict scaled
+                y_scaled = self.session.run(self.predictions, feed_dict={self.inputs: x_scaled})
+                # unscale
+                y = self.y_mean + self.y_std * y_scaled
+                return y
+
+        def predict_values_and_derivs(self, x):
+                # scale
+                x_scaled = (x - self.x_mean) / self.x_std
+                # predict scaled
+                y_scaled, dyscaled_dxscaled = self.session.run(
+                    [self.predictions, self.derivs_predictions],
+                    feed_dict={self.inputs: x_scaled})
+                # unscale
+                y = self.y_mean + self.y_std * y_scaled
+                dydx = self.y_std / self.x_std * dyscaled_dxscaled
+                return y, dydx
