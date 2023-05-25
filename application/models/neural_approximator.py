@@ -8,7 +8,6 @@ from sklearn.utils import resample
 ### Initial requirements for code to work - START
 import tensorflow as tf2
 import numpy as np
-from tqdm import tqdm_notebook
 import time
 import matplotlib.pyplot as plt
 
@@ -66,7 +65,7 @@ def vanilla_net(
     bs.append(tf.get_variable("b" + str(hidden_layers + 1), [1],
                               initializer=tf.zeros_initializer(), dtype=real_type))
     # eq. 3, l=L
-    zs.append(tf.nn.softplus(zs[hidden_layers]) @ ws[hidden_layers + 1] + bs[hidden_layers + 1])
+    zs.append(tf.nn.relu(zs[hidden_layers]) @ ws[hidden_layers + 1] + bs[hidden_layers + 1])
 
     # result = output layer
     ys = zs[hidden_layers + 1]
@@ -250,7 +249,7 @@ def train(description,
           approximator,
           # training params
           reinit=True,
-          epochs=100,
+          epochs=500,
           # one-cycle learning rate schedule
           learning_rate_schedule=[(0.0, 1.0e-8),
                                   (0.2, 0.1),
@@ -380,8 +379,8 @@ class Neural_approximator():
                     self.derivs_predictions, \
                     self.learning_rate, \
                     self.loss, \
-                    self.minimizer = diff_training_graph(self.n, hidden_units, \
-                                                         hidden_layers, weight_seed, \
+                    self.minimizer = diff_training_graph(self.n, hidden_units,
+                                                         hidden_layers, weight_seed,
                                                          self.alpha, self.beta, self.lambda_j)
 
             # global initializer
@@ -413,7 +412,7 @@ class Neural_approximator():
                   description="training",
                   # training params
                   reinit=True,
-                  epochs=100,
+                  epochs=500,
                   # one-cycle learning rate schedule
                   learning_rate_schedule=[
                       (0.0, 1.0e-8),
@@ -462,16 +461,17 @@ class Neural_approximator():
 
 
 if __name__ == '__main__':
-    # param setting
-    sizeTrain = [8192, 1024]
-    sizeTest = 1000
+    # Param setting
+    seed = 1234
+    sizeTrain = [1024, 8192] # Plot predictions for each training number
+    sizeTest = 100           # Number of test observations used for predictions
+    spot_cutoff = False
 
     # Load generated, pathwise data
-    pathwisePath = get_data_path("LSMC_pathwise_ISD.csv")
+    pathwisePath = get_data_path("LSMC_pathwise.csv")
     dataPathwise = np.genfromtxt(pathwisePath, delimiter=",", skip_header=0)
-    # assigning datastructures
-    dataPathwise = resample(dataPathwise, n_samples=len(dataPathwise))
-
+    # Assigning datastructures
+    dataPathwise = resample(dataPathwise, n_samples=len(dataPathwise), random_state=seed)
     """
     # resampled entire data to be sure cropping works
     # assigning datastructures
@@ -483,15 +483,13 @@ if __name__ == '__main__':
     z_train = dataPathwise[:, 2].reshape(-1, 1)
 
 
-
-
     # Load Binomial data for reference
     binomialPath = get_data_path("binomial_unif.csv")
     dataBinomial = np.genfromtxt(binomialPath, delimiter=",", skip_header=0)
-    dataBinomial = dataBinomial[335:, :]
+    if spot_cutoff:
+        dataBinomial = dataBinomial[335:, :]
     # assigning datastructures
-    dataBinomial = resample(dataBinomial, n_samples=len(dataBinomial))
-
+    dataBinomial = resample(dataBinomial, n_samples=len(dataBinomial), random_state=seed)
     """
     # resampled entire data to be sure cropping works
     if sizeTest < len(dataBinomial):
@@ -513,8 +511,6 @@ if __name__ == '__main__':
     deltidx = 0
 
     for size in sizes:
-        print("\nsize %d" % size)
-
         regressor.prepare(size, False, weight_seed=weightSeed) # Don't set differentials
         t0 = time.time()
         regressor.train("standard training")
@@ -530,7 +526,6 @@ if __name__ == '__main__':
         predvalues[("differential", size)] = predictions
         preddeltas[("differential", size)] = deltas[:, deltidx]
         t1 = time.time()
-
 
     def graph(title,
               predictions,
@@ -565,7 +560,7 @@ if __name__ == '__main__':
                     if weights is not None:
                         errors /= weights
                     rmse = np.sqrt((errors ** 2).mean(axis=0))
-                    t = "rmse %.2f" % rmse
+                    t = "rmse %.4f" % rmse
                 else:
                     t = xAxisName
 
@@ -602,9 +597,9 @@ if __name__ == '__main__':
           xAxis=x_test,
           xAxisName="",
           yAxisName="delta ∆",
-          targets=z_test,
+          targets=z_test.reshape(-1,), # reshaped in order to match dimensionality
           sizes=sizes,
-          computeRmse=False,
+          computeRmse=True,
           weights=None
           )
 
