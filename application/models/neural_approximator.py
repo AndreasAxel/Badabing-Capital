@@ -22,7 +22,7 @@ real_type = tf.float32
 
 def vanilla_net(
         input_dim,  # dimension of inputs, e.g. 10
-        hidden_units,  # units in hidden layers, assumed constant, e.g. 20
+        hidden_units,  # units/neurons in hidden layers, assumed constant, e.g. 20
         hidden_layers,  # number of hidden layers, e.g. 4
         seed):  # seed for initialization or None for random
 
@@ -39,32 +39,45 @@ def vanilla_net(
     # layer 0 (input) has no parameters
 
     # layer 0 = input layer
-    zs = [xs]  # eq.3, l=0
+    zs = [xs]  # eq.1, l=0
 
     # first hidden layer (index 1)
     # weight matrix
-    ws.append(tf.get_variable("w1", [input_dim, hidden_units],
-                              initializer=tf.variance_scaling_initializer(), dtype=real_type))
+    ws.append(tf.get_variable(name="w1",
+                              shape=[input_dim, hidden_units],
+                              initializer=tf.variance_scaling_initializer(),
+                              dtype=real_type))
     # bias vector
-    bs.append(tf.get_variable("b1", [hidden_units],
-                              initializer=tf.zeros_initializer(), dtype=real_type))
+    bs.append(tf.get_variable(name="b1",
+                              shape=[hidden_units],
+                              initializer=tf.zeros_initializer(),
+                              dtype=real_type))
+
     # graph
-    zs.append(zs[0] @ ws[1] + bs[1])  # eq. 3, l=1
+    zs.append(zs[0] @ ws[1] + bs[1])  # eq. 1, l=1
 
     # second hidden layer (index 2) to last (index hidden_layers)
     for l in range(1, hidden_layers):
-        ws.append(tf.get_variable("w%d" % (l + 1), [hidden_units, hidden_units],
-                                  initializer=tf.variance_scaling_initializer(), dtype=real_type))
-        bs.append(tf.get_variable("b%d" % (l + 1), [hidden_units],
-                                  initializer=tf.zeros_initializer(), dtype=real_type))
-        zs.append(tf.nn.softplus(zs[l]) @ ws[l + 1] + bs[l + 1])  # eq. 3, l=2..L-1
+        ws.append(tf.get_variable(name="w%d" % (l + 1),
+                                  shape=[hidden_units, hidden_units],
+                                  initializer=tf.variance_scaling_initializer(),
+                                  dtype=real_type))
+        bs.append(tf.get_variable(name="b%d" % (l + 1),
+                                  shape=[hidden_units],
+                                  initializer=tf.zeros_initializer(),
+                                  dtype=real_type))
+        zs.append(tf.nn.softplus(zs[l]) @ ws[l + 1] + bs[l + 1])  # eq. 1, l=2,...,L-1
 
     # output layer (index hidden_layers+1)
-    ws.append(tf.get_variable("w" + str(hidden_layers + 1), [hidden_units, 1],
-                              initializer=tf.variance_scaling_initializer(), dtype=real_type))
-    bs.append(tf.get_variable("b" + str(hidden_layers + 1), [1],
-                              initializer=tf.zeros_initializer(), dtype=real_type))
-    # eq. 3, l=L
+    ws.append(tf.get_variable(name="w" + str(hidden_layers + 1),
+                              shape=[hidden_units, 1],
+                              initializer=tf.variance_scaling_initializer(),
+                              dtype=real_type))
+    bs.append(tf.get_variable(name="b" + str(hidden_layers + 1),
+                              shape=[1],
+                              initializer=tf.zeros_initializer(),
+                              dtype=real_type))
+    # eq. 1, l=L
     zs.append(tf.nn.softplus(zs[hidden_layers]) @ ws[hidden_layers + 1] + bs[hidden_layers + 1])
 
     # result = output layer
@@ -83,12 +96,13 @@ def backprop(
     ws, bs = weights_and_biases
     L = len(zs) - 1
 
-    # backpropagation, eq. 4, l=L..1
+    # backpropagation, eq. 2, l=L..1
     zbar = tf.ones_like(zs[L])  # zbar_L = 1
     for l in range(L - 1, 0, -1):
-        zbar = (zbar @ tf.transpose(ws[l + 1])) * tf.nn.sigmoid(zs[l])  # eq. 4
+        zbar = (zbar @ tf.transpose(ws[l + 1])) * tf.nn.sigmoid(zs[l])  # eq. 2
+
     # for l=0
-    zbar = zbar @ tf.transpose(ws[1])  # eq. 4
+    zbar = zbar @ tf.transpose(ws[1])  # eq. 2
 
     xbar = zbar  # xbar = zbar_0
 
@@ -115,7 +129,7 @@ def vanilla_training_graph(input_dim, hidden_units, hidden_layers, seed):
 
     # optimizer
     learning_rate = tf.placeholder(real_type)
-    optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
     # return all necessary
     return inputs, labels, predictions, derivs_predictions, learning_rate, loss, optimizer.minimize(loss)
@@ -145,6 +159,7 @@ def diff_training_graph(
         alpha,
         beta,
         lambda_j):
+
     # net, now a twin
     inputs, predictions, derivs_predictions = twin_net(input_dim, hidden_units, hidden_layers, seed)
 
@@ -463,7 +478,7 @@ class Neural_approximator():
 if __name__ == '__main__':
     # Param setting
     seed = 1234
-    sizeTrain = [128, 2048] # Plot predictions for each training number
+    sizeTrain = [1024, 8192] # Plot predictions for each training number
     sizeTest = 100           # Number of test observations used for predictions
     spot_cutoff = False
 
