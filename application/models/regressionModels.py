@@ -7,25 +7,11 @@ from sklearn.linear_model import LinearRegression, RidgeCV
 from application.utils.path_utils import get_data_path
 
 """
-Based on Differential Regression Notebook
+Functions and classes are based on Differential Regression Notebook
 
 https://github.com/differential-machine-learning
 """
 
-## classic linear regression
-def create_polynomial(degree = 5):
-    # Construct pipeline for given estimators
-    return make_pipeline(PolynomialFeatures(degree=degree, order='F'),
-                         StandardScaler(),
-                         LinearRegression(n_jobs=-1, fit_intercept=True))
-
-## Ridge regression with built-in cross-validation on alpha
-
-def make_ridge_cv(degree=5, min_alpha=1e-05, max_alpha=1e02, num_alphas=100):
-    alphas = np.exp(np.linspace(np.log(min_alpha), np.log(max_alpha), num_alphas))
-    return make_pipeline(PolynomialFeatures(degree=degree), StandardScaler(), RidgeCV(alphas=alphas))
-
-## Differential regression class
 class DifferentialRegression:
     def __init__(self, degree=5, alpha=0.5):
         self.degree = degree
@@ -59,15 +45,74 @@ class DifferentialRegression:
         else:
             return y_pred
 
-## Functions for plotting
+
+def create_polynomial(degree = 5):
+    """
+    Classic linear regression
+
+    :param degree:
+    :return:
+    """
+    # Construct pipeline for given estimators
+    return make_pipeline(
+        StandardScaler(),
+        PolynomialFeatures(degree=degree, order='F'),
+        LinearRegression(n_jobs=-1, fit_intercept=True)
+    )
+
+
+def make_ridge_cv(degree=5, min_alpha=1e-05, max_alpha=1e02, num_alphas=100):
+    """
+    Ridge regression with built-in cross-validation on alpha
+
+    :param degree:
+    :param min_alpha:
+    :param max_alpha:
+    :param num_alphas:
+    :return:
+    """
+    alphas = np.exp(np.linspace(np.log(min_alpha), np.log(max_alpha), num_alphas))
+    return make_pipeline(
+        StandardScaler(),
+        PolynomialFeatures(degree=degree),
+        RidgeCV(alphas=alphas)
+    )
+
+
 def plot_one(ax, x_train, y_train, x_test, y_test, pred, rmse=None):
+    """
+    Function for creating each subplot
+
+    :param ax:
+    :param x_train:
+    :param y_train:
+    :param x_test:
+    :param y_test:
+    :param pred:
+    :param rmse:
+    :return:
+    """
     ax.set_xlim(0, 75)
     ax.set_ylim(-10, 35)
     samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="samples")
     predict, = ax.plot(x_test, pred, 'b-', label="predict"+", rmse=%.4f" % rmse)
     correct, = ax.plot(x_test, y_test, 'r-', label="correct")
     return samples, predict, correct
+
+
 def plot_multi(x_train, y_train, x_test, y_test, titles, preds, rmse=None):
+    """
+    Function for creating the entire figure composited of subplots
+
+    :param x_train:
+    :param y_train:
+    :param x_test:
+    :param y_test:
+    :param titles:
+    :param preds:
+    :param rmse:
+    :return:
+    """
     nplots = len(preds)
     nrows = (nplots - 1) // 3 + 1
     ncols = min(nplots, 3)
@@ -85,15 +130,20 @@ def plot_multi(x_train, y_train, x_test, y_test, titles, preds, rmse=None):
     return fig, lines
 
 
-
 if __name__ == '__main__':
-    # param setting
+    # ------------------------------------------------- #
+    # Parameter settings                                #
+    # ------------------------------------------------- #
     degree = 5
-    alpha = 1
+    alpha_differential_regression = 1.00
     sizeTrain = 1000
     sizeTest = 1000
     letourneau = False # include Letourneau comparison Delta prediction
-    piecewise = True   # include piecewise linear regression in Delta prediction
+    piecewise = False  # include piecewise linear regression in Delta prediction
+
+    # ------------------------------------------------- #
+    # Load data                                         #
+    # ------------------------------------------------- #
 
     # Load generated, pathwise data
     pathwisePath = get_data_path("LSMC_pathwise_ISD.csv")
@@ -103,40 +153,48 @@ if __name__ == '__main__':
     binomialPath = get_data_path("binomial_unif.csv")
     dataBinomial = np.genfromtxt(binomialPath, delimiter=",", skip_header=0)
 
+    # ------------------------------------------------- #
+    # Data manipulation                                 #
+    # ------------------------------------------------- #
+
     # assigning datastructures
     if sizeTrain < len(dataPathwise):
         dataPathwise = resample(dataPathwise, n_samples=sizeTrain)
 
-    x_train = dataPathwise[:,0].reshape(-1, 1)
-    y_train = dataPathwise[:,1].reshape(-1, 1)
-    z_train = dataPathwise[:,2].reshape(-1, 1)
-
+    x_train = dataPathwise[:, 0].reshape(-1, 1)
+    y_train = dataPathwise[:, 1].reshape(-1, 1)
+    z_train = dataPathwise[:, 2].reshape(-1, 1)
 
     if sizeTest < len(dataBinomial):
         dataBinomial = resample(dataBinomial, n_samples=sizeTest)
 
-    x_test = dataBinomial[:,0].reshape(-1, 1)
+    x_test = dataBinomial[:, 0].reshape(-1, 1)
     y_test = dataBinomial[:, 1].reshape(-1, 1)
     z_test = dataBinomial[:, 2].reshape(-1, 1)
 
-    ## learn and predict for different methods
-    # linear
+    # ------------------------------------------------- #
+    # Learn and predict for different methods,          #
+    # Calculate RMSE for each model, and                #
+    # Plot the results                                  #
+    # ------------------------------------------------- #
+
+    # 1) Classical linear regression
     linreg = create_polynomial(degree=degree)
     linreg.fit(x_train, y_train)
     linpred = linreg.predict(x_test)
 
-    # ridge regression
+    # 2) Ridge regression
     ridgereg = make_ridge_cv(degree=degree)
     ridgereg.fit(x_train, y_train)
     ridgepred = ridgereg.predict(x_test)
-    alpha = ridgereg['ridgecv'].alpha_
+    alpha_ridge = ridgereg['ridgecv'].alpha_
 
-    # differential regression
-    diffreg = DifferentialRegression(degree=degree, alpha=alpha)
+    # 3) Differential regression
+    diffreg = DifferentialRegression(degree=degree, alpha=alpha_differential_regression)
     diffreg.fit(x_train, y_train, z_train)
     diffpred, z_pred = diffreg.predict(x_test, predict_derivs=True)
 
-    # RMSE
+    # Calculate RMSE for the models
     lin_errors = linpred - y_test
     lin_rmse = np.sqrt(np.square(lin_errors).mean())
 
@@ -146,13 +204,30 @@ if __name__ == '__main__':
     diff_errors = diffpred - y_test
     diff_rmse = np.sqrt(np.square(diff_errors).mean())
 
-    ## plotting
-    print("Ridge regression alpha = %.4f" % alpha)
-    fig, lines = plot_multi(x_train, y_train, x_test, y_test,
-                            ["linear regression", "ridge regression", "differential regression"],
-                            [linpred, ridgepred, diffpred],
-                            [lin_rmse, ridge_rmse, diff_rmse])
+    # Plot results
+    print("Ridge regression alpha = %.4f" % alpha_ridge)
+    fig, lines = plot_multi(
+        x_train, y_train, x_test, y_test,
+        ["Classical Linear Regression",
+         "Ridge Regression (α={:.2f})".format(alpha_ridge),
+         "Differential Regression (α={:.2f})".format(alpha_differential_regression)],
+        [linpred, ridgepred, diffpred],
+        [lin_rmse, ridge_rmse, diff_rmse])
     plt.show()
+
+    # ------------------------------------------------- #
+    # Plot predicted delta from Differential Regression #
+    # ------------------------------------------------- #
+
+    deltaRmseDiff = np.sqrt(np.square(z_pred - z_test).mean()).round(4)
+    plt.scatter(x_train, z_train, marker='x', color='cyan', s=2, alpha=0.5, label='train')
+    plt.scatter(x_test, z_test, marker='o', color='red', s=2, alpha=0.5, label="true")
+    plt.scatter(x_test, z_pred, marker='o', color='blue', s=2, alpha=0.5, label='diff, RMSE={}'.format(deltaRmseDiff))
+    plt.show()
+
+    # -------------------------------------------------- #
+    # Comparison to Letourneau & Stentofts' naive method #
+    # -------------------------------------------------- #
 
     if letourneau:
         from application.models.LetourneauStentoft import ISD, disperseFit, Letourneau
@@ -172,7 +247,14 @@ if __name__ == '__main__':
         dataLetourneau = Letourneau(spot=x_test, x0=fitted[0], priceFit=fitted[1], deltaFit=fitted[2], gammaFit=fitted[3])
 
 
-    #piece-wise regression
+        plt.scatter(x_test, dataLetourneau[1], color='orange', s=2, alpha=0.5, label='letourneau')
+        plt.title("∆ predictions")
+        plt.legend()
+        plt.show()
+
+
+    """
+    # Piece-wise regression
     if piecewise:
         import pwlf
         myPWLF = pwlf.PiecewiseLinFit(x_train.reshape(sizeTrain), z_train.reshape(sizeTrain))
@@ -184,16 +266,9 @@ if __name__ == '__main__':
         # predict for the determined points
         xHat = x_test.reshape(sizeTest)
         zHat = myPWLF.predict(xHat)
-
-    deltaRmseDiff = np.sqrt(np.square(z_pred - z_test).mean()).round(4)
-    plt.scatter(x_train, z_train, marker='x', color='cyan', s=2, alpha=0.5, label='train')
-    plt.scatter(x_test, z_test, marker='o', color='red', s=2, alpha=0.5, label="true")
-    plt.scatter(x_test, z_pred, marker='o', color='blue', s=2, alpha=0.5, label='diff, RMSE={}'.format(deltaRmseDiff))
-    if piecewise:
+        
         deltaRmsePw = np.sqrt(np.square(zHat - z_test).mean()).round(4)
         plt.scatter(x_test, zHat, marker='o', color='green', s=2, alpha=0.5, label='pw, RMSE = {}'.format(deltaRmsePw))
-    if letourneau:
-        plt.scatter(x_test, dataLetourneau[1], color='orange', s=2, alpha=0.5, label='letourneau' )
-    plt.title("∆ predictions")
-    plt.legend()
-    plt.show()
+
+    """
+
