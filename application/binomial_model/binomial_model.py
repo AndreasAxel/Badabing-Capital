@@ -58,7 +58,7 @@ def binomial_tree_bs(K, T, S0, r, sigma, M, payoff_func, option_type='PUT', eur_
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     M = 5000
-    T = 1.0
+    T = 0.25
     r = 0.06
     sigma = 0.2
     S0 = 40
@@ -74,6 +74,7 @@ if __name__ == '__main__':
     print(price, delta)
 
     plt.plot(np.linspace(0, T, M+1, True), eeb)
+    plt.hlines(K, xmin=0.0, xmax=T, colors='black', linestyles='dashed')
     plt.title('Early Exercise Boundary')
     plt.show()
 
