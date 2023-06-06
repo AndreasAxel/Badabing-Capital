@@ -148,6 +148,7 @@ if __name__ == '__main__':
     alpha_differential_regression = [0.00, 0.5, 1.00]
     sizeTrain = 10000
     sizeTest = 5000
+    seedNo = 9999
     letourneau = False # include Letourneau comparison Delta prediction
     piecewise = False  # include piecewise linear regression in Delta prediction
 
@@ -240,7 +241,7 @@ if __name__ == '__main__':
         ["Classical Linear Regression",
          "Ridge Regression (α={:.2f})".format(alpha_ridge),
          "Differential Regression (α={:.2f})".format(alpha_differential_regression)],
-        [linpred, ridgepred, ....] 
+        [linpred, ridgepred, diffpred],
         [lin_rmse, ridge_rmse, diff_rmse])
     plt.show()
     """
@@ -281,16 +282,16 @@ if __name__ == '__main__':
         fitted = disperseFit(t0=0,
                          T=1,
                          x0=40,
-                         N=10000,
+                         N=sizeTrain,
                          M=52,
                          r=0.06,
                          sigma=0.2,
                          K=40,
-                         seed=1234,
+                         seed=seedNo,
                          deg_lsmc=9,
-                         deg_stentoft=9,
+                         deg_stentoft=5,
                          option_type='PUT',
-                         x_isd=ISD(N=10000, x0=40, alpha=25, seed=1234))
+                         x_isd=ISD(N=sizeTrain, x0=40, alpha=25, seed=seedNo))
         dataLetourneau = Letourneau(spot=x_test, x0=fitted[0], priceFit=fitted[1], deltaFit=fitted[2], gammaFit=fitted[3])
 
 
@@ -298,7 +299,6 @@ if __name__ == '__main__':
     plt.title("∆ predictions")
     plt.legend()
     plt.show()
-
 
 
     """
@@ -317,5 +317,6 @@ if __name__ == '__main__':
         
         deltaRmsePw = np.sqrt(np.square(zHat - z_test).mean()).round(4)
         plt.scatter(x_test, zHat, marker='o', color='green', s=2, alpha=0.5, label='pw, RMSE = {}'.format(deltaRmsePw))
+
     """
 
