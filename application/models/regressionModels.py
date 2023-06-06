@@ -92,8 +92,18 @@ def plot_one(ax, x_train, y_train, x_test, y_test, pred, rmse=None):
     :param rmse:
     :return:
     """
-    ax.set_xlim(0, 75)
-    ax.set_ylim(-10, 35)
+    ax.set_xlim(10, 75)
+    ax.set_ylim(-5, 25)
+    if np.shape(pred)[1] > 1:
+        samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="samples")
+        alphas = [0.5, 1]
+        color = ['blue', 'purple']
+        for i, prediction in enumerate(pred):
+            predict, = ax.plot(x_test, pred[i], color[i], linestyle='solid', label="predict for α=" + str(alphas[i]) + " , rmse=%.4f" % rmse[i])
+
+        correct, = ax.plot(x_test, y_test, 'r-', label="correct")
+        return samples, predict, correct
+
     samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="samples")
     predict, = ax.plot(x_test, pred, 'b-', label="predict"+", rmse=%.4f" % rmse)
     correct, = ax.plot(x_test, y_test, 'r-', label="correct")
@@ -135,9 +145,10 @@ if __name__ == '__main__':
     # Parameter settings                                #
     # ------------------------------------------------- #
     degree = 5
-    alpha_differential_regression = 1.00
-    sizeTrain = 1000
-    sizeTest = 1000
+    alpha_differential_regression = [0.00, 0.5, 1.00]
+    sizeTrain = 10000
+    sizeTest = 5000
+    seedNo = 9999
     letourneau = False # include Letourneau comparison Delta prediction
     piecewise = False  # include piecewise linear regression in Delta prediction
 
@@ -190,9 +201,20 @@ if __name__ == '__main__':
     alpha_ridge = ridgereg['ridgecv'].alpha_
 
     # 3) Differential regression
-    diffreg = DifferentialRegression(degree=degree, alpha=alpha_differential_regression)
-    diffreg.fit(x_train, y_train, z_train)
-    diffpred, z_pred = diffreg.predict(x_test, predict_derivs=True)
+    # only prices i.e. for alpha = 0
+    diffreg_0 = DifferentialRegression(degree=degree, alpha=alpha_differential_regression[0])
+    diffreg_0.fit(x_train, y_train, z_train)
+    diffpred_0, z_pred_0 = diffreg_0.predict(x_test, predict_derivs=True)
+
+    # half prices half deltas i.e. alpha = 0.5
+    diffreg_05 = DifferentialRegression(degree=degree, alpha=alpha_differential_regression[1])
+    diffreg_05.fit(x_train, y_train, z_train)
+    diffpred_05, z_pred_05 = diffreg_05.predict(x_test, predict_derivs=True)
+
+    # only deltas i.e. alpha = 1
+    diffreg_1 = DifferentialRegression(degree=degree, alpha=alpha_differential_regression[2])
+    diffreg_1.fit(x_train, y_train, z_train)
+    diffpred_1, z_pred_1 = diffreg_1.predict(x_test, predict_derivs=True)
 
     # Calculate RMSE for the models
     lin_errors = linpred - y_test
@@ -201,10 +223,18 @@ if __name__ == '__main__':
     ridge_errors = ridgepred - y_test
     ridge_rmse = np.sqrt(np.square(ridge_errors).mean())
 
-    diff_errors = diffpred - y_test
-    diff_rmse = np.sqrt(np.square(diff_errors).mean())
+    # differential RMSE
+    diff_0_errors = diffpred_0 - y_test
+    diff_0_rmse = np.sqrt(np.square(diff_0_errors).mean())
+
+    diff_05_errors = diffpred_05 - y_test
+    diff_05_rmse = np.sqrt(np.square(diff_05_errors).mean())
+
+    diff_1_errors = diffpred_1 - y_test
+    diff_1_rmse = np.sqrt(np.square(diff_1_errors).mean())
 
     # Plot results
+    """
     print("Ridge regression alpha = %.4f" % alpha_ridge)
     fig, lines = plot_multi(
         x_train, y_train, x_test, y_test,
@@ -214,16 +244,34 @@ if __name__ == '__main__':
         [linpred, ridgepred, diffpred],
         [lin_rmse, ridge_rmse, diff_rmse])
     plt.show()
+    """
+
+    # Pricing functions
+    fig, lines = plot_multi(
+        x_train, y_train, x_test, y_test,
+        ["Classical Linear Regression",
+         "Ridge Regression (α={:.2f})".format(alpha_ridge),
+         "Differential Regression"],
+        [linpred, ridgepred, [diffpred_05, diffpred_1]],
+        [lin_rmse, ridge_rmse, [diff_05_rmse, diff_1_rmse]])
+    plt.show()
+
 
     # ------------------------------------------------- #
     # Plot predicted delta from Differential Regression #
     # ------------------------------------------------- #
 
-    deltaRmseDiff = np.sqrt(np.square(z_pred - z_test).mean()).round(4)
+    deltaRmseDiff_0 = np.sqrt(np.square(z_pred_0 - z_test).mean()).round(4)
+    deltaRmseDiff_05 = np.sqrt(np.square(z_pred_05 - z_test).mean()).round(4)
+    deltaRmseDiff_1 = np.sqrt(np.square(z_pred_1 - z_test).mean()).round(4)
     plt.scatter(x_train, z_train, marker='x', color='cyan', s=2, alpha=0.5, label='train')
     plt.scatter(x_test, z_test, marker='o', color='red', s=2, alpha=0.5, label="true")
-    plt.scatter(x_test, z_pred, marker='o', color='blue', s=2, alpha=0.5, label='diff, RMSE={}'.format(deltaRmseDiff))
-    plt.show()
+    plt.scatter(x_test, z_pred_0, marker='o', color='blue', s=2, alpha=0.5,
+                label='diff. reg. α='+str(alpha_differential_regression[0])+'RMSE={}'.format(deltaRmseDiff_0))
+    plt.scatter(x_test, z_pred_05, marker='o', color='purple', s=2, alpha=0.5,
+                label='diff. reg. α=' + str(alpha_differential_regression[1]) + 'RMSE={}'.format(deltaRmseDiff_05))
+    plt.scatter(x_test, z_pred_1, marker='o', color='orange', s=2, alpha=0.5,
+                label='diff. reg. α=' + str(alpha_differential_regression[2]) + 'RMSE={}'.format(deltaRmseDiff_1))
 
     # -------------------------------------------------- #
     # Comparison to Letourneau & Stentofts' naive method #
@@ -234,23 +282,23 @@ if __name__ == '__main__':
         fitted = disperseFit(t0=0,
                          T=1,
                          x0=40,
-                         N=10000,
+                         N=sizeTrain,
                          M=52,
                          r=0.06,
                          sigma=0.2,
                          K=40,
-                         seed=1234,
+                         seed=seedNo,
                          deg_lsmc=9,
-                         deg_stentoft=9,
+                         deg_stentoft=5,
                          option_type='PUT',
-                         x_isd=ISD(N=10000, x0=40, alpha=25, seed=1234))
+                         x_isd=ISD(N=sizeTrain, x0=40, alpha=25, seed=seedNo))
         dataLetourneau = Letourneau(spot=x_test, x0=fitted[0], priceFit=fitted[1], deltaFit=fitted[2], gammaFit=fitted[3])
 
 
         plt.scatter(x_test, dataLetourneau[1], color='orange', s=2, alpha=0.5, label='letourneau')
-        plt.title("∆ predictions")
-        plt.legend()
-        plt.show()
+    plt.title("∆ predictions")
+    plt.legend()
+    plt.show()
 
 
     """

@@ -78,8 +78,8 @@ if __name__ == '__main__':
     T = 1.0
     x0 = 40
     K = 40
-    M = 252
-    N = 100000
+    M = 52
+    N = 10000
     r = 0.06
     sigma = 0.2
     seed = 1234
@@ -89,13 +89,14 @@ if __name__ == '__main__':
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
     x_linear = np.linspace(20, 60, N, True)
     x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
+    x_lognormal = np.random.lognormal(mean=np.log(40), sigma=sigma, size=N)
 
     # ------------------------------------------------- #
     # LSMC (pathwise)                                   #
     # ------------------------------------------------- #
 
-    export_filepath = get_data_path('LSMC_pathwise.csv')
-    data_lsmc = gen_LSMC_pathwise_data(t=t, spot=x_linear, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath)
+    export_filepath = get_data_path('LSMC_pathwise_lognormal.csv')
+    data_lsmc = gen_LSMC_pathwise_data(t=t, spot=x_lognormal, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath)
 
     # Plot simulated pathwise deltas
     #import matplotlib.pyplot as plt

@@ -15,6 +15,10 @@ import matplotlib.pyplot as plt
 tf = tf2.compat.v1
 #tf.disable_eager_execution()
 
+tf.logging.set_verbosity(tf.logging.ERROR)
+import warnings
+warnings.filterwarnings('ignore')
+
 # representation of real numbers in TF, change here for 32/64 bits
 real_type = tf.float32
 

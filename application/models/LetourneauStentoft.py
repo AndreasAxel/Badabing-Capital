@@ -3,6 +3,9 @@ from application.Longstaff_Schwartz.LSMC import LSMC
 from application.utils.LSMC_fit_predict import fit_poly, pred_poly
 from application.simulation.sim_gbm import GBM
 from application.options.payoff import european_payoff
+from application.utils.path_utils import get_data_path
+from sklearn.utils import resample
+
 
 
 def ISD(N, x0, alpha, seed=None):
@@ -93,7 +96,7 @@ def Letourneau( spot, x0, priceFit, deltaFit, gammaFit):
 
 
 if __name__ == '__main__':
-    plot = False
+    plot = True
 
     t0 = 0.0
     T = 1.0
@@ -103,7 +106,7 @@ if __name__ == '__main__':
     r = 0.06
     sigma = 0.2
     K = 40.0
-    seed = 1234
+    seed = 9999
     deg_lsmc = 9
     deg_stentoft = 9
     option_type = 'PUT'
@@ -128,6 +131,7 @@ if __name__ == '__main__':
           "price, delta, gamma\n",
           Letourneau(spot=40, x0=fitted[0], priceFit=fitted[1], deltaFit=fitted[2], gammaFit=fitted[3]))
 
+
     def forPlotting(alpha, N, M, x0, t0, r, K, sigma, seed, deg_lsmc):
         t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
         x_isd = ISD(N=N, x0=x0, alpha=alpha)
@@ -137,29 +141,39 @@ if __name__ == '__main__':
         lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg_lsmc)
 
         # get cash flows
-        cf = lsmc.payoff
+        #cf = lsmc.payoff
+        cf = lsmc.cashflow
         # vector of stopped cash flows
         cf = np.sum((cf * lsmc.opt_stopping_rule), axis=0)
+        #cf = np.sum((cf * lsmc.pathwise_opt_stopping_idx), axis=0)
+
         # discounting pathwise w/ stopping time
         df = [np.exp(-r * tau) if ~np.isnan(tau) else 0.0 for tau in lsmc.pathwise_opt_stopping_time]
         cf = cf * df
 
-        x_isd = x_isd[~np.isnan(lsmc.pathwise_opt_stopping_idx)]
-        cf = cf[~np.isnan(lsmc.pathwise_opt_stopping_idx)]
+        #x_isd = x_isd[~np.isnan(lsmc.pathwise_opt_stopping_idx)]
+        #cf = cf[~np.isnan(lsmc.pathwise_opt_stopping_idx)]
 
         return x_isd, cf
 
 
     if plot:
         import matplotlib.pyplot as plt
-        alpha1, alpha2 = 0.5, 25
+        alpha1, alpha2, alpha3 = 0.5, 5, 25
         x,y = forPlotting(alpha1, N, M, x0, t0, r, K, sigma, seed, deg_lsmc)
         x2, y2 = forPlotting(alpha2, N, M, x0, t0, r, K, sigma, seed, deg_lsmc)
+        x3, y3 = forPlotting(alpha3, N, M, x0, t0, r, K, sigma, seed, deg_lsmc)
 
-        fig, (ax1, ax2) = plt.subplots(1,2)
-        fig.suptitle('Payoff dispersion, N={}'.format(N))
+        fig, (ax1, ax2, ax3) = plt.subplots(1,3)
+        #fig.suptitle('Payoff dispersion, N={}'.format(N))
         ax1.scatter(x,y, marker='o', alpha=0.5, s=2)
-        ax1.set_xlabel('Discounted payoff for alpha = {}'.format(alpha1))
+        ax1.set_xlabel(r'Discounted payoff for $\alpha=$ {}'.format(alpha1))
         ax2.scatter(x2, y2, marker='o', alpha=0.5, s=2)
-        ax2.set_xlabel('Discounted payoff for alpha = {}'.format(alpha2))
+        ax2.set_xlabel(r'Discounted payoff for $\alpha =$ {}'.format(alpha2))
+        ax3.scatter(x3, y3, marker='o', alpha=0.5, s=2)
+        ax3.set_xlabel(r'Discounted payoff for $\alpha =$ {}'.format(alpha3))
+        plt.gcf().set_size_inches(10, 5)
+        #plt.savefig('/Users/sebastianhansen/Documents/UNI/PUK/letour.png', dpi=400)
         plt.show()
+
+
