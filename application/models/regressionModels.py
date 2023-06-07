@@ -228,7 +228,6 @@ if __name__ == '__main__':
     diffpred_1, z_pred_1 = diffreg_1.predict(x_test, predict_derivs=True)
 
     # Calculate RMSE for the models
-
     lin_errors = linpred - y_test
     lin_rmse = np.sqrt(np.square(lin_errors).mean())
 
@@ -335,5 +334,5 @@ if __name__ == '__main__':
         deltaRmsePw = np.sqrt(np.square(zHat - z_test).mean()).round(4)
         plt.scatter(x_test, zHat, marker='o', color='green', s=2, alpha=0.5, label='pw, RMSE = {}'.format(deltaRmsePw))
 
-    """
+        """
 

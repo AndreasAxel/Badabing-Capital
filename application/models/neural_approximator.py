@@ -121,7 +121,8 @@ def vanilla_training_graph(input_dim, hidden_units, hidden_layers, seed):
     # net
     inputs, weights_and_biases, layers, predictions = vanilla_net(input_dim, hidden_units, hidden_layers, seed)
 
-    # backprop even though we are not USING differentials for training
+    # backprop even though we are not USING differentials for
+    # training
     # we still need them to predict derivatives dy_dx
     derivs_predictions = backprop(weights_and_biases, layers)
 
@@ -482,8 +483,8 @@ class Neural_approximator():
 if __name__ == '__main__':
     # Param setting
     seed = 1234
-    sizeTrain = [1024, 8192] # Plot predictions for each training number
-    sizeTest = 100           # Number of test observations used for predictions
+    sizeTrain = [8192] # Plot predictions for each training number
+    sizeTest = 1000           # Number of test observations used for predictions
     spot_cutoff = False
 
     # Load generated, pathwise data
@@ -528,10 +529,14 @@ if __name__ == '__main__':
     weightSeed = 1234
     deltidx = 0
 
-    for size in sizes:
+    training = [256, 512, 1024, 2048, 4096, 8192, 16384, 16384*2, 16384*4]
+
+
+    for size in training:
+        print(size)
         regressor.prepare(size, False, weight_seed=weightSeed) # Don't set differentials
         t0 = time.time()
-        regressor.train("standard training")
+        regressor.train("standard training", epochs=100)
         predictions, deltas = regressor.predict_values_and_derivs(x_test)
         predvalues[("standard", size)] = predictions
         preddeltas[("standard", size)] = deltas[:, deltidx]
@@ -539,11 +544,48 @@ if __name__ == '__main__':
 
         regressor.prepare(size, True, weight_seed=weightSeed) # Set differentials
         t0 = time.time()
-        regressor.train("differential training")
+        regressor.train("differential training", epochs=100)
         predictions, deltas = regressor.predict_values_and_derivs(x_test)
         predvalues[("differential", size)] = predictions
         preddeltas[("differential", size)] = deltas[:, deltidx]
         t1 = time.time()
+
+
+
+    mse1 = []
+    mse2 = []
+
+    mse3 = []
+    mse4 = []
+
+    for t in training:
+        mse1.append((np.mean((predvalues[('standard', t)] - y_test)**2)))
+        mse2.append((np.mean((predvalues[('differential',t)] - y_test) ** 2)))
+        mse3.append((np.mean((preddeltas[('standard', t)] - z_test) ** 2)))
+        mse4.append((np.mean((preddeltas[('differential',t)] - z_test) ** 2)))
+
+    plt.plot((training), np.sqrt(mse1), 'c-o', label='Standard')
+    plt.plot((training), np.sqrt(mse2), 'r-o', label='diff')
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.ylabel('RMSE')
+    plt.xlabel('Training size')
+    plt.legend()
+    plt.show()
+
+    plt.plot((training), np.sqrt(mse3), 'c-x', label='standard delta')
+    plt.plot((training), np.sqrt(mse4), 'r-x', label='diff delta')
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.ylabel('RMSE')
+    plt.xlabel('Training size')
+    plt.legend()
+    plt.show()
+
+    plt.plot(x_test, preddeltas[('standard', 2048)], 'co', label="standard")
+    plt.plot(x_test, preddeltas[('differential', 2048)], 'ro', label="differential")
+    plt.legend()
+    plt.show()
 
     def graph(title,
               predictions,
@@ -553,7 +595,8 @@ if __name__ == '__main__':
               targets,
               sizes,
               computeRmse=False,
-              weights=None):
+              weights=None,
+              save=False):
 
         numRows = len(sizes)
         numCols = 2
@@ -567,8 +610,8 @@ if __name__ == '__main__':
                               xycoords=ax[i, 0].yaxis.label, textcoords='offset points',
                               ha='right', va='center')
 
-        ax[0, 0].set_title("standard")
-        ax[0, 1].set_title("differential")
+        ax[0, 0].set_title("Standard Neural Network")
+        ax[0, 1].set_title("Differential Neural Network")
 
         for i, size in enumerate(sizes):
             for j, regType, in enumerate(["standard", "differential"]):
@@ -578,7 +621,7 @@ if __name__ == '__main__':
                     if weights is not None:
                         errors /= weights
                     rmse = np.sqrt((errors ** 2).mean(axis=0))
-                    t = "rmse %.4f" % rmse
+                    t = "RMSE %.4f" % rmse
                 else:
                     t = xAxisName
 
@@ -586,41 +629,49 @@ if __name__ == '__main__':
                 ax[i, j].set_ylabel(yAxisName)
 
                 ax[i, j].plot(xAxis, predictions[(regType, size)], 'co',
-                              markersize=2, markerfacecolor='white', label="predicted")
-                ax[i, j].plot(xAxis, targets, 'r.', markersize=0.5, label='targets')
+                              markersize=2, markerfacecolor='white', label="Predicted")
+                ax[i, j].plot(xAxis, targets, 'r.', markersize=0.5, label='Binomial Model')
 
                 ax[i, j].legend(prop={'size': 8}, loc='upper left')
 
         plt.tight_layout()
         plt.subplots_adjust(top=0.9)
-        plt.suptitle("% s -- %s" % (title, yAxisName), fontsize=16)
+        #plt.suptitle("% s -- %s" % (title, yAxisName), fontsize=16)
+        if save:
+            plt.savefig('/Users/sebastianhansen/Documents/UNI/PUK/nnDelta.png', dpi=400)
         plt.show()
 
 
     # Show payoff predictions
-    graph(title="Pathwise_LSMC",
+    """
+    graph(title=" ",
           predictions=predvalues,
           xAxis=x_test,
           xAxisName="",
-          yAxisName="payoff",
+          yAxisName="",
           targets=y_test,
           sizes=sizes,
           computeRmse=True,
-          weights=None
+          weights=None,
+          save=True
           )
 
+    """
     # Show predicted deltas
-    graph(title="Pathwise_LSMC",
+
+    """
+    graph(title=" ",
           predictions=preddeltas,
           xAxis=x_test,
           xAxisName="",
-          yAxisName="delta ∆",
+          yAxisName="",
           targets=z_test.reshape(-1,), # reshaped in order to match dimensionality
           sizes=sizes,
           computeRmse=True,
-          weights=None
+          weights=None,
+          save=True
           )
-
+        """
 
 
 
