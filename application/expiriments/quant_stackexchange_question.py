@@ -6,7 +6,7 @@ def payoff(x, K, option_type='PUT'):
     if option_type == 'PUT':
         return np.maximum(K-x, 0.0)
     elif option_type == 'CALL':
-        return np.maximum(K-x, 0.0)
+        return np.maximum(x-K, 0.0)
     else:
         raise NotImplementedError
 
@@ -66,8 +66,8 @@ def binomial_tree_bs(K, T, S0, r, sigma, M, payoff_func, option_type='PUT', eur_
 
 if __name__ == '__main__':
 
-    M_hedge = 500  # Number of discretizations used to determine Delta and Early Exercise Boundary
-    M = 90          # Number of time steps in simulations
+    M_hedge = 100  # Number of discretizations used to determine Delta and Early Exercise Boundary
+    M = 1000          # Number of time steps in simulations
     N = 8           # Number of paths to simulate
     T = 0.25        # Time to expiry
     r = 0.06        # Risk free rate
@@ -170,3 +170,15 @@ if __name__ == '__main__':
     pnl = df * (v - p)
 
     print('mean={:.4f}, std={:.4f}, rmse={:.4f}'.format(np.mean(pnl), np.std(pnl), np.sqrt(np.mean(pnl ** 2))))
+
+    err = V - price
+    for i in range(N):
+        if M - tau_idx[i] < 1:
+            color = 'blue'
+        else:
+            color = 'red'
+        plt.plot(t[:tau_idx[i]], err[:tau_idx[i], i], color=color)
+    plt.xlabel('t')
+    plt.ylabel('V - price')
+    plt.title('Hedge Error')
+    plt.show()
