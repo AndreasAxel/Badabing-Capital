@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     # Degrees to vary
     deg = ['standard', 'differential'] #methods
-    N = [128, 256, 512, 1024, 2048, 4096]
+    N = [256, 512, 1024, 2048, 4096]
     alphas = [10, 20, 30, 50, 100, 200] #epochs
 
     # ------------------------------------- #
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     # ------------------------------------- #
 
     # Number of repetitions
-    repeat = 10
+    repeat = 25
 
     # Objects for storing results
     df = pd.DataFrame(
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         for a in alphas:
             for n in N:
                 cell = '{:.3f} ({:.4f})'.format(
-                    df_tmp.loc[n, a, d]['MEAN_RMSE_DELTA'], df_tmp.loc[n, a, d]['STD_RMSE_PRICE']
+                    df_tmp.loc[n, a, d]['MEAN_RMSE_DELTA'], df_tmp.loc[n, a, d]['STD_RMSE_DELTA']
                 )
                 df_summary_delta.loc[a, n]['DEG_' + str(d)] = cell
 

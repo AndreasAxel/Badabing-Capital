@@ -97,7 +97,7 @@ if __name__ == '__main__':
         for a in alphas:
             for n in N:
                 cell = '{:.3f} ({:.4f})'.format(
-                    df_tmp.loc[n, a, d]['MEAN_RMSE_DELTA'], df_tmp.loc[n, a, d]['STD_RMSE_PRICE']
+                    df_tmp.loc[n, a, d]['MEAN_RMSE_DELTA'], df_tmp.loc[n, a, d]['STD_RMSE_DELTA']
                 )
                 df_summary_delta.loc[a, n]['DEG_' + str(d)] = cell
 
@@ -113,7 +113,8 @@ if __name__ == '__main__':
 
     #df_summary.to_csv(export_path, float_format='%.4f')
 
-
+    df_summary_price.to_csv('/Users/sebastianhansen/Documents/UNI/PUK/regtablePrice.csv', float_format='%.4f')
+    df_summary_delta.to_csv('/Users/sebastianhansen/Documents/UNI/PUK/regtableDelta.csv', float_format='%.4f')
 
 
 
