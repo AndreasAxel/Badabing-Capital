@@ -79,7 +79,7 @@ def make_ridge_cv(degree=5, min_alpha=1e-05, max_alpha=1e02, num_alphas=100):
     )
 
 
-def plot_one(ax, x_train, y_train, x_test, y_test, pred, rmse=None):
+def plot_one(ax, x_train, y_train, x_test, y_test, pred, rmse=None, alpha_ridge_label = None):
     """
     Function for creating each subplot
 
@@ -95,22 +95,29 @@ def plot_one(ax, x_train, y_train, x_test, y_test, pred, rmse=None):
     ax.set_xlim(10, 75)
     ax.set_ylim(-5, 25)
     if np.shape(pred)[1] > 1:
-        samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="samples")
-        alphas = [0.5, 1]
+        samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="Samples")
+        alpha_label = [0.5, 1.0]
         color = ['blue', 'purple']
         for i, prediction in enumerate(pred):
-            predict, = ax.plot(x_test, pred[i], color[i], linestyle='solid', label="predict for α=" + str(alphas[i]) + " , rmse=%.4f" % rmse[i])
+            predict, = ax.plot(x_test, pred[i], color[i], linestyle='solid', label="Predict for α=" + str(alpha_label[i]) + " , rmse=%.4f" % rmse[i])
 
-        correct, = ax.plot(x_test, y_test, 'r-', label="correct")
+        correct, = ax.plot(x_test, y_test, 'r-', label="Binomial Model")
         return samples, predict, correct
 
-    samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="samples")
-    predict, = ax.plot(x_test, pred, 'b-', label="predict"+", rmse=%.4f" % rmse)
-    correct, = ax.plot(x_test, y_test, 'r-', label="correct")
+    # to put alpha label on legend rather than on title
+    if alpha_ridge_label != None:
+        samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="Samples")
+        predict, = ax.plot(x_test, pred, 'b-', label="Predict for α={:.2f}".format(alpha_ridge_label) + ", rmse=%.4f" % rmse)
+        correct, = ax.plot(x_test, y_test, 'r-', label="Binomial Model")
+        return samples, predict, correct
+
+    samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="Samples")
+    predict, = ax.plot(x_test, pred, 'b-', label="Predict"+", rmse=%.4f" % rmse)
+    correct, = ax.plot(x_test, y_test, 'r-', label="Binomial Model")
     return samples, predict, correct
 
 
-def plot_multi(x_train, y_train, x_test, y_test, titles, preds, rmse=None):
+def plot_multi(x_train, y_train, x_test, y_test, titles, preds, rmse=None, alpha_ridge_label = None):
     """
     Function for creating the entire figure composited of subplots
 
@@ -133,7 +140,11 @@ def plot_multi(x_train, y_train, x_test, y_test, titles, preds, rmse=None):
     lines = []
     for i, ax in enumerate(axs.flatten()):
         if i < nplots:
-            samples, predict, correct = plot_one(ax, x_train, y_train, x_test, y_test, preds[i], rmse[i])
+            if titles[i] == "Ridge Regression":
+                samples, predict, correct = plot_one(ax, x_train, y_train, x_test, y_test, preds[i], rmse[i],
+                                                     alpha_ridge_label)
+            else:
+                samples, predict, correct = plot_one(ax, x_train, y_train, x_test, y_test, preds[i], rmse[i])
             lines.extend([samples, predict, correct])
             ax.legend()
             ax.set_title(titles[i])
@@ -144,11 +155,11 @@ if __name__ == '__main__':
     # ------------------------------------------------- #
     # Parameter settings                                #
     # ------------------------------------------------- #
-    degree = 5
+    degree = 9
     alpha_differential_regression = [0.00, 0.5, 1.00]
-    sizeTrain = 10000
+    sizeTrain = 1024
     sizeTest = 5000
-    seedNo = 9999
+    seedNo = 1234
     letourneau = False # include Letourneau comparison Delta prediction
     piecewise = False  # include piecewise linear regression in Delta prediction
 
@@ -170,14 +181,14 @@ if __name__ == '__main__':
 
     # assigning datastructures
     if sizeTrain < len(dataPathwise):
-        dataPathwise = resample(dataPathwise, n_samples=sizeTrain)
+        dataPathwise = resample(dataPathwise, n_samples=sizeTrain, random_state=seedNo)
 
     x_train = dataPathwise[:, 0].reshape(-1, 1)
     y_train = dataPathwise[:, 1].reshape(-1, 1)
     z_train = dataPathwise[:, 2].reshape(-1, 1)
 
     if sizeTest < len(dataBinomial):
-        dataBinomial = resample(dataBinomial, n_samples=sizeTest)
+        dataBinomial = resample(dataBinomial, n_samples=sizeTest, random_state=seedNo)
 
     x_test = dataBinomial[:, 0].reshape(-1, 1)
     y_test = dataBinomial[:, 1].reshape(-1, 1)
@@ -217,6 +228,7 @@ if __name__ == '__main__':
     diffpred_1, z_pred_1 = diffreg_1.predict(x_test, predict_derivs=True)
 
     # Calculate RMSE for the models
+
     lin_errors = linpred - y_test
     lin_rmse = np.sqrt(np.square(lin_errors).mean())
 
@@ -229,6 +241,8 @@ if __name__ == '__main__':
 
     diff_05_errors = diffpred_05 - y_test
     diff_05_rmse = np.sqrt(np.square(diff_05_errors).mean())
+    diff_05_rmse = np.sqrt(np.mean((diff_05_errors) ** 2))
+
 
     diff_1_errors = diffpred_1 - y_test
     diff_1_rmse = np.sqrt(np.square(diff_1_errors).mean())
@@ -249,11 +263,13 @@ if __name__ == '__main__':
     # Pricing functions
     fig, lines = plot_multi(
         x_train, y_train, x_test, y_test,
-        ["Classical Linear Regression",
-         "Ridge Regression (α={:.2f})".format(alpha_ridge),
+        titles = ["Classical Linear Regression",
+         "Ridge Regression",
          "Differential Regression"],
-        [linpred, ridgepred, [diffpred_05, diffpred_1]],
-        [lin_rmse, ridge_rmse, [diff_05_rmse, diff_1_rmse]])
+        preds = [linpred, ridgepred, [diffpred_05, diffpred_1]],
+        rmse = [lin_rmse, ridge_rmse, [diff_05_rmse, diff_1_rmse]],
+        alpha_ridge_label= alpha_ridge
+    )
     plt.show()
 
 
@@ -264,14 +280,15 @@ if __name__ == '__main__':
     deltaRmseDiff_0 = np.sqrt(np.square(z_pred_0 - z_test).mean()).round(4)
     deltaRmseDiff_05 = np.sqrt(np.square(z_pred_05 - z_test).mean()).round(4)
     deltaRmseDiff_1 = np.sqrt(np.square(z_pred_1 - z_test).mean()).round(4)
-    plt.scatter(x_train, z_train, marker='x', color='cyan', s=2, alpha=0.5, label='train')
-    plt.scatter(x_test, z_test, marker='o', color='red', s=2, alpha=0.5, label="true")
-    plt.scatter(x_test, z_pred_0, marker='o', color='blue', s=2, alpha=0.5,
-                label='diff. reg. α='+str(alpha_differential_regression[0])+'RMSE={}'.format(deltaRmseDiff_0))
-    plt.scatter(x_test, z_pred_05, marker='o', color='purple', s=2, alpha=0.5,
-                label='diff. reg. α=' + str(alpha_differential_regression[1]) + 'RMSE={}'.format(deltaRmseDiff_05))
-    plt.scatter(x_test, z_pred_1, marker='o', color='orange', s=2, alpha=0.5,
-                label='diff. reg. α=' + str(alpha_differential_regression[2]) + 'RMSE={}'.format(deltaRmseDiff_1))
+
+    plt.plot(x_train, z_train, 'co', markersize=5, markerfacecolor="white", alpha=0.5, label='Samples')
+    plt.plot(x_test, z_test, marker='o', color='red', markersize=2, alpha=0.5, label="Binomial Model")
+    plt.plot(x_test, z_pred_0, marker='o', color='blue', markersize=2, alpha=0.5,
+                label='diff. reg. α='+str(alpha_differential_regression[0])+', RMSE={}'.format(deltaRmseDiff_0))
+    plt.plot(x_test, z_pred_05, marker='o', color='purple', markersize=2, alpha=0.5,
+                label='diff. reg. α=' + str(alpha_differential_regression[1]) + ', RMSE={}'.format(deltaRmseDiff_05))
+    plt.plot(x_test, z_pred_1, marker='o', color='orange', markersize=2, alpha=0.5,
+                label='diff. reg. α=' + str(alpha_differential_regression[2]) + ', RMSE={}'.format(deltaRmseDiff_1))
 
     # -------------------------------------------------- #
     # Comparison to Letourneau & Stentofts' naive method #
@@ -297,7 +314,7 @@ if __name__ == '__main__':
 
         plt.scatter(x_test, dataLetourneau[1], color='orange', s=2, alpha=0.5, label='letourneau')
     plt.title("∆ predictions")
-    plt.legend()
+    plt.legend(draggable=True)
     plt.show()
 
 

@@ -12,9 +12,14 @@ if __name__ == '__main__':
     # ------------------------------------------------- #
     # Parameter settings                                #
     # ------------------------------------------------- #
-    alpha_differential_regression = [0.00, 0.5, 1.00]
-    num_models = 4  # number of considered models i.e. ridge regression and diff regressions for alpha = {0, 0.5, 1}
+    deg = (3,5,7,9)
+    N = [256, 512, 1024, 2048, 4096]
+    alphas = [0.0, 0.5, 1.0]
+    # Number of repetitions
+    repeat = 100
+    # Size of test data
     sizeTest = 5000
+
 
 
     # ------------------------------------------------- #
@@ -29,7 +34,7 @@ if __name__ == '__main__':
     dataBinomial = np.genfromtxt(binomialPath, delimiter=",", skip_header=0)
 
     # ------------------------------------------------- #
-    # Data manipulation                                 #
+    # Test data construction                            #
     # ------------------------------------------------- #
 
     if sizeTest < len(dataBinomial):
@@ -39,17 +44,7 @@ if __name__ == '__main__':
     y_test = dataBinomial[:, 1].reshape(-1, 1)
     z_test = dataBinomial[:, 2].reshape(-1, 1)
 
-    # Degrees to vary
-    deg = (3,5,7,9)
-    N = [256, 512, 1024, 2048, 4096]
-    alphas = [0.0, 0.5, 1.0]
 
-    # ------------------------------------- #
-    # Analysis of Regression models         #
-    # ------------------------------------- #
-
-    # Number of repetitions
-    repeat = 100
 
     # Objects for storing results
     df = pd.DataFrame(
@@ -75,7 +70,7 @@ if __name__ == '__main__':
 
 
                     df.loc[rep, n, alpha, d][['RMSE_PRICE', 'RMSE_DELTA']] = (
-                        np.sqrt(np.mean((diffpred - y_test)**2)), np.sqrt(np.mean((z_pred - z_test))**2)
+                        np.sqrt(np.mean((diffpred - y_test)**2)), np.sqrt(np.mean((z_pred - z_test)**2))
                     )
 
     # Summary statistics
@@ -109,7 +104,13 @@ if __name__ == '__main__':
 
 
     # Export summary results
-    #print(df_summary_price.to_latex(float_format='%.4f'))
+    # Below provides latex code for the two tables
+    print("PRICE table in latex mode: \n")
+    print(df_summary_price.to_latex(float_format='%.4f'))
+
+    print("DELTA table in latex mode: \n")
+    print(df_summary_delta.to_latex(float_format='%.4f'))
+
     #df_summary.to_csv(export_path, float_format='%.4f')
 
 
