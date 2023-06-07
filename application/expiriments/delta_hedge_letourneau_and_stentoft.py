@@ -10,7 +10,6 @@ from application.options.payoff import european_payoff
 
 
 def letourneau_fit_predict(lsmc, x, x0, deg_stentoft=9):
-
     # Extract (pathwise) payoffs
     cf = lsmc.payoff
     cf = np.sum((cf * lsmc.opt_stopping_rule), axis=0)
@@ -38,8 +37,8 @@ if __name__ == '__main__':
     T = 0.25
     x0 = 40.0
     M = 50
-    r = 0.06
-    sigma = 0.2
+    r = 0.05
+    sigma = 0.06
     K = 40.0
     seed = 1234
     deg_lsmc = 9
@@ -51,7 +50,7 @@ if __name__ == '__main__':
     rep = 1
 
     # Variables to vary
-    N = 1000
+    N = 10000
 
     # Auxiliary variables
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
@@ -128,8 +127,8 @@ if __name__ == '__main__':
     v = np.array([V[tau_idx[i], i] for i in range(N)])
     p = np.array([np.max([K-S[tau_idx[i], i], 0.0]) for i in range(N)])
 
-    plt.scatter(x, v, color='blue', label='Hedge (V)')
-    plt.scatter(x, p, color='red', label='Put (p)')
+    plt.scatter(x, v, color='blue', label='Hedge (V)', alpha=500/N)
+    plt.scatter(x, p, color='red', label='Put (p)', alpha=500/N)
     plt.legend()
     plt.xlabel('S(tau)')
     plt.show()
@@ -138,6 +137,10 @@ if __name__ == '__main__':
     df = np.array([np.exp(-r*t[j]) for j in tau_idx])
 
     # Calculate present value of PnL for each path
-    pnl = df * (v - p)
+    pnl = df * (v) - p
 
     print('mean={:.4f}, std={:.4f}, rmse={:.4f}'.format(np.mean(pnl), np.std(pnl), np.sqrt(np.mean(pnl**2))))
+
+    plt.hist(pnl, bins=100, density=True)
+    plt.title('Density of Hedge Error (PnL)')
+    plt.show()
