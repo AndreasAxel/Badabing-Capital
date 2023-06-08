@@ -482,13 +482,13 @@ class Neural_approximator():
 
 if __name__ == '__main__':
     # Param setting
-    seed = 1234
-    sizeTrain = [8192] # Plot predictions for each training number
+    seed = None
+    sizeTrain = 99999 # Plot predictions for each training number
     sizeTest = 1000           # Number of test observations used for predictions
     spot_cutoff = False
 
     # Load generated, pathwise data
-    pathwisePath = get_data_path("LSMC_pathwise.csv")
+    pathwisePath = get_data_path("LSMC_pathwise_ISD.csv")
     dataPathwise = np.genfromtxt(pathwisePath, delimiter=",", skip_header=0)
     # Assigning datastructures
     dataPathwise = resample(dataPathwise, n_samples=len(dataPathwise), random_state=seed)
@@ -524,19 +524,17 @@ if __name__ == '__main__':
 
     predvalues = {}
     preddeltas = {}
-
-    sizes = sizeTrain
-    weightSeed = 1234
+    sizes = [1024, 4096*2]
+    epochs = 100
+    weightSeed = 12346
     deltidx = 0
 
-    training = [256, 512, 1024, 2048, 4096, 8192, 16384, 16384*2, 16384*4]
+    for size in sizes:
 
-
-    for size in training:
         print(size)
         regressor.prepare(size, False, weight_seed=weightSeed) # Don't set differentials
         t0 = time.time()
-        regressor.train("standard training", epochs=100)
+        regressor.train("standard training", epochs=epochs)
         predictions, deltas = regressor.predict_values_and_derivs(x_test)
         predvalues[("standard", size)] = predictions
         preddeltas[("standard", size)] = deltas[:, deltidx]
@@ -544,48 +542,11 @@ if __name__ == '__main__':
 
         regressor.prepare(size, True, weight_seed=weightSeed) # Set differentials
         t0 = time.time()
-        regressor.train("differential training", epochs=100)
+        regressor.train("differential training", epochs=epochs)
         predictions, deltas = regressor.predict_values_and_derivs(x_test)
         predvalues[("differential", size)] = predictions
         preddeltas[("differential", size)] = deltas[:, deltidx]
         t1 = time.time()
-
-
-
-    mse1 = []
-    mse2 = []
-
-    mse3 = []
-    mse4 = []
-
-    for t in training:
-        mse1.append((np.mean((predvalues[('standard', t)] - y_test)**2)))
-        mse2.append((np.mean((predvalues[('differential',t)] - y_test) ** 2)))
-        mse3.append((np.mean((preddeltas[('standard', t)] - z_test) ** 2)))
-        mse4.append((np.mean((preddeltas[('differential',t)] - z_test) ** 2)))
-
-    plt.plot((training), np.sqrt(mse1), 'c-o', label='Standard')
-    plt.plot((training), np.sqrt(mse2), 'r-o', label='diff')
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.ylabel('RMSE')
-    plt.xlabel('Training size')
-    plt.legend()
-    plt.show()
-
-    plt.plot((training), np.sqrt(mse3), 'c-x', label='standard delta')
-    plt.plot((training), np.sqrt(mse4), 'r-x', label='diff delta')
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.ylabel('RMSE')
-    plt.xlabel('Training size')
-    plt.legend()
-    plt.show()
-
-    plt.plot(x_test, preddeltas[('standard', 2048)], 'co', label="standard")
-    plt.plot(x_test, preddeltas[('differential', 2048)], 'ro', label="differential")
-    plt.legend()
-    plt.show()
 
     def graph(title,
               predictions,
@@ -596,7 +557,8 @@ if __name__ == '__main__':
               sizes,
               computeRmse=False,
               weights=None,
-              save=False):
+              save=False,
+              name=None ):
 
         numRows = len(sizes)
         numCols = 2
@@ -628,7 +590,7 @@ if __name__ == '__main__':
                 ax[i, j].set_xlabel(t)
                 ax[i, j].set_ylabel(yAxisName)
 
-                ax[i, j].plot(xAxis, predictions[(regType, size)], 'co',
+                ax[i, j].plot(xAxis, predictions[(regType, size)], 'bo',
                               markersize=2, markerfacecolor='white', label="Predicted")
                 ax[i, j].plot(xAxis, targets, 'r.', markersize=0.5, label='Binomial Model')
 
@@ -636,14 +598,12 @@ if __name__ == '__main__':
 
         plt.tight_layout()
         plt.subplots_adjust(top=0.9)
-        #plt.suptitle("% s -- %s" % (title, yAxisName), fontsize=16)
         if save:
-            plt.savefig('/Users/sebastianhansen/Documents/UNI/PUK/nnDelta.png', dpi=400)
+            plt.savefig('/Users/sebastianhansen/Documents/UNI/PUK/' + name + '.png', dpi=400)
         plt.show()
 
 
     # Show payoff predictions
-    """
     graph(title=" ",
           predictions=predvalues,
           xAxis=x_test,
@@ -653,13 +613,12 @@ if __name__ == '__main__':
           sizes=sizes,
           computeRmse=True,
           weights=None,
-          save=True
+          save=False,
+          name="nnPrice"
           )
 
-    """
-    # Show predicted deltas
 
-    """
+    # Show predicted deltas
     graph(title=" ",
           predictions=preddeltas,
           xAxis=x_test,
@@ -669,13 +628,49 @@ if __name__ == '__main__':
           sizes=sizes,
           computeRmse=True,
           weights=None,
-          save=True
+          save=False,
+          name="nnDelta"
           )
-        """
 
 
+    def plot_performance(predictedVals, predictedDeltas, save=False, savePath=None, figName=None):
+        fig, ax = plt.subplots(2, 2, squeeze=False)
+        fig.set_size_inches(4 * 2 + 1.5, 4 * 2)
+        ax[0, 0].set_title("Price")
+        ax[0, 1].set_title("Delta")
+
+        ax[0,0].plot(x_test, predictedVals,'bo',
+                              markersize=2, markerfacecolor='white', label="Predicted")
+        ax[0, 0].plot(x_test, y_test,
+                      'r.', markersize=0.5, label='Binomial Model')
+        ax[0, 0].legend(prop={'size': 8}, loc='upper left')
+        ax[0, 1].plot(x_test, predictedDeltas, 'bo',
+                      markersize=2, markerfacecolor='white', label="Predicted")
+        ax[0, 1].plot(x_test, z_test.reshape(-1) ,
+                      'r.', markersize=0.5, label='Binomial Model')
+        ax[0, 1].legend(prop={'size': 8}, loc='upper left')
+        ax[1, 0].plot(x_test, predictedVals - y_test, 'bo',
+                      markersize=2, markerfacecolor='white', label="Predicted")
+        ax[1, 0].plot(x_test, y_test - y_test,
+                      'r.', markersize=0.5, label='Binomial Model')
+        ax[1, 1].plot(x_test, predictedDeltas - z_test.reshape(-1), 'bo',
+                      markersize=2, markerfacecolor='white', label="Predicted")
+        ax[1, 1].plot(x_test, z_test.reshape(-1) - z_test.reshape(-1),
+                      'r.', markersize=0.5)
+
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.9)
+        if save:
+            plt.savefig(savePath + figName + '.png', dpi=400)
+        plt.show()
 
 
+    plot_performance(predictedVals=predvalues[("differential", size)],
+                     predictedDeltas=preddeltas[("differential", size)],
+                     save=False,
+                     savePath='/Users/sebastianhansen/Documents/UNI/PUK/',
+                     figName='nnPerfomance'
+                     )
 
 
 
