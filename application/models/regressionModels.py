@@ -92,8 +92,7 @@ def plot_one(ax, x_train, y_train, x_test, y_test, pred, rmse=None, alpha_ridge_
     :param rmse:
     :return:
     """
-    ax.set_xlim(10, 75)
-    ax.set_ylim(-5, 25)
+
     if np.shape(pred)[1] > 1:
         samples, = ax.plot(x_train, y_train, 'co', markersize=5, markerfacecolor="white", label="Samples")
         alpha_label = [0.5, 1.0]
@@ -146,7 +145,7 @@ def plot_multi(x_train, y_train, x_test, y_test, titles, preds, rmse=None, alpha
             else:
                 samples, predict, correct = plot_one(ax, x_train, y_train, x_test, y_test, preds[i], rmse[i])
             lines.extend([samples, predict, correct])
-            ax.legend()
+            ax.legend(draggable=True, prop = {'size': 8})
             ax.set_title(titles[i])
     return fig, lines
 
@@ -157,7 +156,7 @@ if __name__ == '__main__':
     # ------------------------------------------------- #
     degree = 9
     alpha_differential_regression = [0.00, 0.5, 1.00]
-    sizeTrain = 1024
+    sizeTrain = 4096
     sizeTest = 5000
     seedNo = 1234
     letourneau = False # include Letourneau comparison Delta prediction
@@ -208,7 +207,9 @@ if __name__ == '__main__':
     # 2) Ridge regression
     ridgereg = make_ridge_cv(degree=degree)
     ridgereg.fit(x_train, y_train)
+    ridgeDeriv = np.polyder(ridgereg['ridgecv'].coef_[0][::-1], 1)
     ridgepred = ridgereg.predict(x_test)
+    z_ridge = np.polyval(ridgeDeriv, (x_test - np.mean(x_train)) / np.std(x_train)) / np.std(x_train)
     alpha_ridge = ridgereg['ridgecv'].alpha_
 
     # 3) Differential regression
@@ -247,17 +248,6 @@ if __name__ == '__main__':
     diff_1_rmse = np.sqrt(np.square(diff_1_errors).mean())
 
     # Plot results
-    """
-    print("Ridge regression alpha = %.4f" % alpha_ridge)
-    fig, lines = plot_multi(
-        x_train, y_train, x_test, y_test,
-        ["Classical Linear Regression",
-         "Ridge Regression (α={:.2f})".format(alpha_ridge),
-         "Differential Regression (α={:.2f})".format(alpha_differential_regression)],
-        [linpred, ridgepred, diffpred],
-        [lin_rmse, ridge_rmse, diff_rmse])
-    plt.show()
-    """
 
     # Pricing functions
     fig, lines = plot_multi(
@@ -275,24 +265,49 @@ if __name__ == '__main__':
     # ------------------------------------------------- #
     # Plot predicted delta from Differential Regression #
     # ------------------------------------------------- #
-
+    deltaRmseDiff_ridge = np.sqrt(np.square(z_ridge - z_test).mean()).round(4)
     deltaRmseDiff_0 = np.sqrt(np.square(z_pred_0 - z_test).mean()).round(4)
     deltaRmseDiff_05 = np.sqrt(np.square(z_pred_05 - z_test).mean()).round(4)
     deltaRmseDiff_1 = np.sqrt(np.square(z_pred_1 - z_test).mean()).round(4)
 
-    plt.plot(x_train, z_train, 'co', markersize=5, markerfacecolor="white", alpha=0.5, label='Samples')
-    plt.plot(x_test, z_test, marker='o', color='red', markersize=2, alpha=0.5, label="Binomial Model")
-    plt.plot(x_test, z_pred_0, marker='o', color='blue', markersize=2, alpha=0.5,
-                label='diff. reg. α='+str(alpha_differential_regression[0])+', RMSE={}'.format(deltaRmseDiff_0))
+    # Delta functions
+    fig, lines = plot_multi(
+        x_train, z_train, x_test, z_test,
+        titles = ["Classical Linear Regression",
+         "Ridge Regression",
+         "Differential Regression"],
+        preds = [z_pred_0, z_ridge, [z_pred_05, z_pred_1]],
+        rmse = [deltaRmseDiff_0, deltaRmseDiff_ridge, [deltaRmseDiff_05, deltaRmseDiff_1]],
+        alpha_ridge_label= alpha_ridge
+    )
+    plt.show()
+
+
+
+
+
+
+
+
+    """
+    ### Additional delta plot - not used ###
+    plt.plot(x_train, z_train, 'co', markersize=5, markerfacecolor="white", alpha=0.5,
+             label='Samples')
+    plt.plot(x_test, z_test, marker='o', color='red', markersize=2, alpha=0.5,
+             label="Binomial Model")
+    plt.plot(x_test, z_ridge, marker='o', color='blue', markersize=2, alpha=0.5,
+             label='Ridge:       α={:.2f}'.format(alpha_ridge) + ', RMSE={:.3f}'.format(deltaRmseDiff_ridge))
+    plt.plot(x_test, z_pred_0, marker='o', color='pink', markersize=2, alpha=0.5,
+             label='Classical:  α={:.2f}'.format(alpha_differential_regression[0])+', RMSE={:.3f}'.format(deltaRmseDiff_0))
     plt.plot(x_test, z_pred_05, marker='o', color='purple', markersize=2, alpha=0.5,
-                label='diff. reg. α=' + str(alpha_differential_regression[1]) + ', RMSE={}'.format(deltaRmseDiff_05))
+             label='Half-delta: α={:.2f}'.format(alpha_differential_regression[1]) + ', RMSE={:.3f}'.format(deltaRmseDiff_05))
     plt.plot(x_test, z_pred_1, marker='o', color='orange', markersize=2, alpha=0.5,
-                label='diff. reg. α=' + str(alpha_differential_regression[2]) + ', RMSE={}'.format(deltaRmseDiff_1))
+             label='Full delta:  α={:.2f}'.format(alpha_differential_regression[2]) + ', RMSE={:.3f}'.format(deltaRmseDiff_1))
+
 
     # -------------------------------------------------- #
     # Comparison to Letourneau & Stentofts' naive method #
     # -------------------------------------------------- #
-
     if letourneau:
         from application.models.LetourneauStentoft import ISD, disperseFit, Letourneau
         fitted = disperseFit(t0=0,
@@ -317,7 +332,6 @@ if __name__ == '__main__':
     plt.show()
 
 
-    """
     # Piece-wise regression
     if piecewise:
         import pwlf
@@ -334,5 +348,4 @@ if __name__ == '__main__':
         deltaRmsePw = np.sqrt(np.square(zHat - z_test).mean()).round(4)
         plt.scatter(x_test, zHat, marker='o', color='green', s=2, alpha=0.5, label='pw, RMSE = {}'.format(deltaRmsePw))
 
-        """
-
+    """

@@ -144,11 +144,12 @@ if __name__ == '__main__':
     # ------------------------------------------------- #
     # Parameter settings                                #
     # ------------------------------------------------- #
-    degree = 5
+    degree = 9
     alpha_differential_regression = [0.00, 0.5, 1.00]
-    sizeTrain = 9999
+    sizeTrain = 99999
     sizeTest = 5000
-    seedNo = None
+    sizes = [256 * 4 ** i for i in range(5)]
+    seedNo = 1234
     letourneau = False # include Letourneau comparison Delta prediction
     piecewise = False  # include piecewise linear regression in Delta prediction
 
@@ -170,14 +171,14 @@ if __name__ == '__main__':
 
     # assigning datastructures
     if sizeTrain < len(dataPathwise):
-        dataPathwise = resample(dataPathwise, n_samples=sizeTrain)
+        dataPathwise = resample(dataPathwise, n_samples=sizeTrain, random_state=seedNo)
 
     x_train = dataPathwise[:, 0].reshape(-1, 1)
     y_train = dataPathwise[:, 1].reshape(-1, 1)
     z_train = dataPathwise[:, 2].reshape(-1, 1)
 
     if sizeTest < len(dataBinomial):
-        dataBinomial = resample(dataBinomial, n_samples=sizeTest)
+        dataBinomial = resample(dataBinomial, n_samples=sizeTest, random_state=seedNo)
 
     x_test = dataBinomial[:, 0].reshape(-1, 1)
     y_test = dataBinomial[:, 1].reshape(-1, 1)
@@ -201,10 +202,10 @@ if __name__ == '__main__':
               save=False):
 
         numRows = len(sizes)
-        numCols = 3
+        numCols = 2
 
-        fig, ax = plt.subplots(numRows, numCols, squeeze=False)
-        fig.set_size_inches(4 * numCols + 1.5, 4 * numRows)
+        fig, ax = plt.subplots(numRows, numCols, squeeze=False, sharex='all')
+        #fig.set_size_inches(4 * numCols + 1.5, 4 * numRows)
 
         for i, size in enumerate(sizes):
             ax[i, 0].annotate("size %d" % size, xy=(0, 0.5),
@@ -212,38 +213,38 @@ if __name__ == '__main__':
                               xycoords=ax[i, 0].yaxis.label, textcoords='offset points',
                               ha='right', va='center')
 
-        ax[0, 0].set_title("Linear Regression")
-        ax[0, 1].set_title("Ridge Regression")
-        ax[0, 2].set_title("Differential Regression")
+        ax[0, 0].set_title("Price")
+        ax[0, 1].set_title("Delta")
+
 
         for i, size in enumerate(sizes):
-            for j, regType in enumerate(["standard", "ridge", "differential"]):
+            for j, regType in enumerate(["Price", "Delta"]):
 
                 if computeRmse:
-                    errors = (predictions[(regType, size)] - targets)
+                    errors = (predictions[(regType, size)] - targets[j])
                     if weights is not None:
                         errors /= weights
                     rmse = np.sqrt((errors ** 2).mean(axis=0))
-                    t = "RMSE %.5f" % rmse
+                    t = "RMSE= %.4f" % rmse
                 else:
                     t = xAxisName
 
-                ax[i, j].set_xlabel(t)
+                #ax[i, j].set_xlabel(t)
                 ax[i, j].set_ylabel(yAxisName)
                 # ax[i, j].set_xlim(35, 45)
 
                 if regType == 'ridge':
                     ax[i, j].plot(xAxis, predictions[(regType, size)], 'co',
-                                  markersize=2, markerfacecolor='white', label=r"Predicted, $\alpha=${}".format(np.round(alphas[(regType, size)] ,3)))
+                                  markersize=2, markerfacecolor='white', label=r"Predictions $\alpha=${}".format(np.round(alphas[(regType, size)] ,3)))
                 else:
-                    ax[i, j].plot(xAxis, predictions[(regType, size)], 'co',
-                                  markersize=2, markerfacecolor='white', label="Predicted")
-                ax[i, j].plot(xAxis, targets, 'r.', markersize=0.5, label='Binomial Model')
+                    ax[i, j].plot(xAxis, predictions[(regType, size)], 'bo',
+                                  markersize=2, markerfacecolor='white', label=t)
+                ax[i, j].plot(xAxis, targets[j], 'ro', markersize=0.5)
 
-                ax[i, j].legend(prop={'size': 8}, loc='upper left')
+                ax[i, j].legend(prop={'size': 10}, draggable = True, markerscale=0.0, frameon = False)
 
-        plt.tight_layout()
-        plt.subplots_adjust(top=0.9)
+        #plt.tight_layout()
+        #plt.subplots_adjust(top=0.9)
         # plt.suptitle("% s -- %s" % (title, yAxisName), fontsize=16)
         if save:
             plt.savefig('/Users/sebastianhansen/Documents/UNI/PUK/regression.png', dpi=400)
@@ -251,7 +252,7 @@ if __name__ == '__main__':
 
 
 
-    sizes = [256, 1024]
+
     predvalues = {}
     preddeltas = {}
     alphas = {}
@@ -262,65 +263,16 @@ if __name__ == '__main__':
         ytrain = y_train[:size  ]  # resample(y_train, n_samples=size)
         ztrain = z_train[:size  ]  # resample(z_train, n_samples=size)
 
-        # xtest = resample(x_test, n_samples=size)
-        scaler = StandardScaler()
-        scaler.fit(x_train)
-        xtest = scaler.transform(x_test)
-        xtest = x_test
 
-
-
-        # 1) Classical linear regression
-        linreg = create_polynomial(degree=degree)
-        linreg.fit(xtrain, ytrain)
-        linpred = linreg.predict( x_test)
-
-        linDeriv = np.polyder(linreg['linearregression'].coef_[0][::-1], 1)
-        linDevs = np.polyval(linDeriv, (x_test - np.mean(x_train)) / np.std(x_train)) / np.std(x_train)
-
-        predictions, deltas = linpred, linDevs
-        predvalues[("standard", size)] = predictions
-        preddeltas[("standard", size)] = deltas
-
-        # 2) Ridge regression
-        ridgereg = make_ridge_cv(degree=degree)
-        ridgereg.fit(xtrain, ytrain)
-
-        ridgeDeriv = np.polyder(ridgereg['ridgecv'].coef_[0][::-1], 1)
-        ridgepred = ridgereg.predict(x_test)
-
-        ridgeDevs = np.polyval(ridgeDeriv, (x_test - np.mean(x_train)) / np.std(x_train)) / np.std(x_train)
-        alpha_ridge = ridgereg['ridgecv'].alpha_
-
-        predictions, deltas = ridgepred, ridgeDevs
-        predvalues[("ridge", size)] = predictions
-        alphas[('ridge', size)] = alpha_ridge
-        preddeltas[("ridge", size)] = deltas
-
-        # 3) Differential regression
-        diffreg = DifferentialRegression(degree=degree, alpha=1)
+        # Differential regression
+        diffreg = DifferentialRegression(degree=degree, alpha=0.5)
         diffreg.fit(xtrain, ytrain, ztrain)
         diffpred, z_pred = diffreg.predict(x_test, predict_derivs=True)
 
         predictions, deltas = diffpred, z_pred
-        predvalues[("differential", size)] = predictions
-        preddeltas[("differential", size)] = deltas
-
-
-
-    # Show payoff predictions
-    graph(title="",
-          predictions=predvalues,
-          xAxis=x_test,
-          xAxisName="",
-          yAxisName="",
-          targets=y_test,
-          sizes=sizes,
-          computeRmse=True,
-          weights=None,
-          save=False
-          )
-
+        #predvalues[("differential", size)] = predictions
+        preddeltas[("Price", size)] = predictions
+        preddeltas[("Delta", size)] = deltas
 
     # Show delta predictions
     graph(title="",
@@ -328,10 +280,9 @@ if __name__ == '__main__':
           xAxis=x_test,
           xAxisName="",
           yAxisName="",
-          targets=z_test,
+          targets=[y_test, z_test],
           sizes=sizes,
           computeRmse=True,
           weights=None,
           save=False
           )
-
