@@ -79,7 +79,7 @@ if __name__ == '__main__':
     x0 = 40
     K = 40
     M = 52
-    N = 10000
+    N = 5000
     r = 0.06
     sigma = 0.2
     seed = 1234
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     alpha = 25
 
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
-    x_linear = np.linspace(20, 60, N, True)
+    x_linear = np.linspace(20, 60, N+1, True)
     x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
     x_lognormal = np.random.lognormal(mean=np.log(40), sigma=sigma, size=N)
 
@@ -95,8 +95,8 @@ if __name__ == '__main__':
     # LSMC (pathwise)                                   #
     # ------------------------------------------------- #
 
-    export_filepath = get_data_path('LSMC_pathwise_lognormal.csv')
-    data_lsmc = gen_LSMC_pathwise_data(t=t, spot=x_lognormal, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath)
+    #export_filepath = get_data_path('LSMC_pathwise_lognormal.csv')
+    #data_lsmc = gen_LSMC_pathwise_data(t=t, spot=x_lognormal, r=r, sigma=sigma, K=K, N=N, export_filepath=export_filepath)
 
     # Plot simulated pathwise deltas
     #import matplotlib.pyplot as plt
@@ -109,8 +109,8 @@ if __name__ == '__main__':
     # Binomial tree                                     #
     # ------------------------------------------------- #
 
-    #export_filepath = get_data_path('binomial.csv')
-    #gen_binomial(vec_spot=x_linear, K=K, T=T, r=r, sigma=sigma, M=2500, export_filepath=export_filepath)
+    export_filepath = get_data_path('binomial.csv')
+    gen_binomial(vec_spot=x_linear, K=K, T=T, r=r, sigma=sigma, M=2500, export_filepath=export_filepath)
 
     # ------------------------------------------------- #
     # Letourneau & Stentoft                             #
