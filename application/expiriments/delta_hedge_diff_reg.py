@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from application.binomial_model.binomial_model import binomial_tree_bs
 from application.models.LetourneauStentoft import ISD
-from application.models.differential_regression import DifferentialRegression
+from application.models.regressionModels import DifferentialRegression
 from application.simulation.sim_gbm import GBM
 from application.Longstaff_Schwartz.LSMC import LSMC
 from application.utils.LSMC_fit_predict import fit_poly, pred_poly
@@ -29,11 +29,10 @@ def simulate_pathwise_data(t, N, r, sigma, K, eeb, option_type, vol_mult=1.0):
 
     df = np.exp(-r * tau)
 
-    one = ~np.isnan(tau)
     S_tau = np.array([S[j, i] for i, j in enumerate(tau_idx)])
 
     payoff = df * european_payoff(x=S_tau, K=K, option_type=option_type)
-    delta = - df * S_tau / spot * one
+    delta = - df * np.where(S_tau > K, S_tau / spot, 0.0)  # TODO Check this
 
     # plt.scatter(spot, payoff, alpha=0.05)
     # plt.show()

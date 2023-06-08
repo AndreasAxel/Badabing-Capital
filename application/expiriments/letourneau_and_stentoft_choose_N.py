@@ -14,21 +14,21 @@ if __name__ == '__main__':
     t0 = 0.0
     T = 1.0
     x0 = 40.0
-    N = 16384
     M = 50
     r = 0.06
     sigma = 0.2
     K = 40.0
     seed = 1234
     deg_lsmc = 9
+    deg_stentoft = 9
     option_type = 'PUT'
     alpha = 25.0
 
-    # Deg to plot error for
-    deg_ = 9
+    # N to plot error for
+    N_ = 16384
 
     # Degrees to vary
-    deg_stentoft = [3, 5, 7, 9]
+    N = [256*4**i for i in range(5)]
 
     # Define range of test spots
     x_test = np.linspace(start=20.0, stop=60.0, num=101, endpoint=True)
@@ -51,16 +51,16 @@ if __name__ == '__main__':
     # ------------------------------------- #
 
     # Mean squared error (MSE)
-    rmse_price = np.zeros_like(deg_stentoft, dtype=np.float64)
-    rmse_delta = np.zeros_like(deg_stentoft, dtype=np.float64)
+    rmse_price = np.zeros_like(N, dtype=np.float64)
+    rmse_delta = np.zeros_like(N, dtype=np.float64)
 
     # Create figures
-    fig, ax = plt.subplots(nrows=len(deg_stentoft), ncols=2, sharex='col')
+    fig, ax = plt.subplots(nrows=len(N), ncols=2, sharex='col')
     ax[0, 0].set_title('Price')
     ax[0, 1].set_title('Delta')
-    ax[len(deg_stentoft)-1, 0].set_xlabel('Spot')
-    ax[len(deg_stentoft)-1, 1].set_xlabel('Spot')
-    
+    ax[len(N) - 1, 0].set_xlabel('Spot')
+    ax[len(N) - 1, 1].set_xlabel('Spot')
+
     fig_err, ax_err = plt.subplots(nrows=1, ncols=2, sharex='col', sharey='all')
     ax_err[0].set_title('Price')
     ax_err[1].set_title('Delta')
@@ -70,12 +70,12 @@ if __name__ == '__main__':
     ax_err[1].hlines(0.0, 0.8 * np.min(x_test), 1.2 * np.max(x_test), color='red', linestyles='dashed')
     ax_err[0].set_ylabel('')
 
-    for i, d in tqdm(enumerate(deg_stentoft)):
+    for i, n in tqdm(enumerate(N)):
         # Initiate spots using Initial State Dispersion (ISD)
-        x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
+        x_isd = ISD(N=n, x0=x0, alpha=alpha, seed=seed)
 
         # Simulate paths as GBM
-        gbm = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, seed=seed, use_av=True)
+        gbm = GBM(t=t, x0=x_isd, N=n, mu=r, sigma=sigma, seed=seed, use_av=True)
         gbm.sim_exact()
 
         # Run Longstaff-Schwarch Monte Carlo method
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         cf_pv = cf * df
 
         # Fit polynomials for price and delta
-        coef_price = fit_poly(x=x_isd - x0, y=cf_pv, deg=d)  # coefficients `b`
+        coef_price = fit_poly(x=x_isd - x0, y=cf_pv, deg=deg_stentoft)  # coefficients `b`
         coef_delta = np.polyder(coef_price, 1)
 
         # Predict price and delta
@@ -112,21 +112,21 @@ if __name__ == '__main__':
         ax[i, 0].plot(x_test, binom_price, color='red')
         ax[i, 0].scatter(x_isd[:1000], cf_pv[:1000], color='grey', alpha=0.1)
         ax[i, 0].plot(x_test, price, color='blue')
-        ax[i, 0].set_ylabel('deg={}'.format(d))
-        ax[i, 0].set_xlim(0.8*np.min(x_test), 1.2*np.max(x_test))
-        ax[i, 0].set_ylim(-0.2, 1.2*np.max(binom_price))
-        ax[i, 0].text(60, (-0.2+1.2*np.max(binom_price))/2, 'RMSE = {:.2E}'.format(rmse_price[i]))
+        ax[i, 0].set_ylabel('N={}'.format(n))
+        ax[i, 0].set_xlim(0.8 * np.min(x_test), 1.2 * np.max(x_test))
+        ax[i, 0].set_ylim(-0.2, 1.2 * np.max(binom_price))
+        ax[i, 0].text(60, (-0.2 + 1.2 * np.max(binom_price)) / 2, 'RMSE = {:.2E}'.format(rmse_price[i]))
 
         # Add subplot for delta
         ax[i, 1].plot(x_test, binom_delta, color='red')
         ax[i, 1].plot(x_test, delta, color='blue')
-        ax[i, 1].set_xlim(0.8*np.min(x_test), 1.2*np.max(x_test))
+        ax[i, 1].set_xlim(0.8 * np.min(x_test), 1.2 * np.max(x_test))
         ax[i, 1].set_ylim(-1.1, 0.1)
-        ax[i, 1].text(60, (-1.1 + 0.1)/2, 'RMSE = {:.2E}'.format(rmse_delta[i]))
+        ax[i, 1].text(60, (-1.1 + 0.1) / 2, 'RMSE = {:.2E}'.format(rmse_delta[i]))
 
         # Subplot for errors across spots
-        if d == deg_:
-            ax_err[0].plot(x_test, err_price, color='blue')
-            ax_err[1].plot(x_test, err_delta, color='blue')
+        if n == N_:
+            ax_err[0].plot(x_test, err_price, color='blue', alpha=(i+1)/len(N), label=n)
+            ax_err[1].plot(x_test, err_delta, color='blue', alpha=(i+1)/len(N), label=n)
 
     plt.show()
