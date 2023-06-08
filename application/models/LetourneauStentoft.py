@@ -101,12 +101,12 @@ if __name__ == '__main__':
     t0 = 0.0
     T = 1.0
     x0 = 40.0
-    N = 100000
+    N = 16384
     M = 50
     r = 0.06
     sigma = 0.2
     K = 40.0
-    seed = 9999
+    seed = 1234
     deg_lsmc = 9
     deg_stentoft = 9
     option_type = 'PUT'
