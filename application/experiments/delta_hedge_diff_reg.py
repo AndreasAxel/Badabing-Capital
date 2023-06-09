@@ -135,10 +135,10 @@ if __name__ == '__main__':
     v = np.array([V[tau_idx[i], i] for i in range(N)])
     p = np.array([np.max([K-S[tau_idx[i], i], 0.0]) for i in range(N)])
 
-    plt.scatter(x, v, color='blue', label='Hedge (V)', alpha=500/N)
-    plt.scatter(x, p, color='red', label='Put (p)', alpha=500/N)
+    plt.scatter(x, v, color='blue', label='Hedge (V)', alpha=500 / N)
+    plt.scatter(x, p, color='red', s=2, label='Put (p)', alpha=500 / N)
     plt.legend()
-    plt.xlabel('S(tau)')
+    plt.xlabel(r'$S(\tau)$')
     plt.show()
 
     # Discount factor for PnL
@@ -149,6 +149,11 @@ if __name__ == '__main__':
 
     print('mean={:.4f}, std={:.4f}, rmse={:.4f}'.format(np.mean(pnl), np.std(pnl), np.sqrt(np.mean(pnl**2))))
 
-    plt.hist(pnl, bins=100, density=True)
-    plt.title('Density of Hedge Error (PnL)')
+    plt.hist(pnl, bins=100, density=True,
+             label='mean = {:.4f}, std. dev. = {:.4f}, rmse = {:.4f}'.format(np.mean(pnl),
+                                                                             np.std(pnl),
+                                                                             np.sqrt(np.mean(pnl ** 2))))
+    plt.axvline(x=np.mean(pnl), ls='--', color='red')
+    #plt.title('Density of Hedge Error (PnL)')
+    plt.legend(markerscale=0.0, prop={'size': 8}, loc='lower center')
     plt.show()
