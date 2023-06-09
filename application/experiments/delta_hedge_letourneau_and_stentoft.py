@@ -3,54 +3,32 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from application.binomial_model.binomial_model import binomial_tree_bs
 from application.models.LetourneauStentoft import ISD
-from application.models.regressionModels import DifferentialRegression
 from application.simulation.sim_gbm import GBM
 from application.Longstaff_Schwartz.LSMC import LSMC
 from application.utils.LSMC_fit_predict import fit_poly, pred_poly
 from application.options.payoff import european_payoff
 
 
-def simulate_pathwise_data(t, N, r, sigma, K, eeb, option_type, vol_mult=1.0):
-    rng = np.random.default_rng()
-    Z = rng.normal(loc=0.0, scale=1.0, size=N)
-    sigma = sigma * vol_mult
+def letourneau_fit_predict(lsmc, x, x0, deg_stentoft=9):
+    # Extract (pathwise) payoffs
+    cf = lsmc.payoff
+    cf = np.sum((cf * lsmc.opt_stopping_rule), axis=0)
 
-    spot = K * np.exp((r - 0.5 * sigma ** 2) * t[-1] + np.sqrt(t[-1]) * sigma * Z)
+    # Calculate discount factor
+    df = [np.exp(-lsmc.r * tau) if ~np.isnan(tau) else 0.0 for tau in lsmc.pathwise_opt_stopping_time]
 
-    gbm = GBM(t=t, x0=spot, N=N, mu=r, sigma=sigma, use_av=True, seed=None)
-    gbm.sim_exact()
-    S = gbm.X
+    # Calculate (pathwise) discounted cashflows
+    cf_pv = cf * df
 
-    M = len(t) - 1
+    # Fit polynomials for price and delta
+    coef_price = fit_poly(x=lsmc.X[0, :] - x0, y=cf_pv, deg=deg_stentoft)
+    coef_delta = np.polyder(coef_price, 1)
 
-    tau_idx = np.argmax(np.cumsum(S < eeb.reshape(-1, 1), axis=0) > 0, axis=0)
-    tau_idx = np.array([j if S[j, i] < eeb[j] else M for i, j in enumerate(tau_idx)])
-    tau = t[tau_idx]
+    # Predict price and delta
+    price = pred_poly(x=x - x0, fit=coef_price)
+    delta = pred_poly(x=x - x0, fit=coef_delta)
 
-    df = np.exp(-r * tau)
-
-    S_tau = np.array([S[j, i] for i, j in enumerate(tau_idx)])
-
-    payoff = df * european_payoff(x=S_tau, K=K, option_type=option_type)
-    delta = - df * np.where(S_tau > K, S_tau / spot, 0.0)  # TODO Check this
-
-    # plt.scatter(spot, payoff, alpha=0.05)
-    # plt.show()
-    # plt.scatter(spot, delta, alpha=0.05)
-    # plt.show()
-
-    return spot.reshape(-1, 1), payoff.reshape(-1, 1), delta.reshape(-1, 1)
-
-
-def diff_reg_fit_predict(x, t, N, r, sigma, K, eeb, option_type, deg=9, alpha=0.5, vol_mult=1.0):
-    # Generate pathwise samples
-    x_train, y_train, z_train = simulate_pathwise_data(t, N, r, sigma, K, eeb, option_type, vol_mult=vol_mult)
-
-    diff_reg = DifferentialRegression(degree=deg, alpha=alpha)
-    diff_reg.fit(x_train, y_train, z_train)
-    price, delta = diff_reg.predict(x.reshape(-1, 1), predict_derivs=True)
-
-    return price.reshape(len(x), ), delta.reshape(len(x), )
+    return price, delta
 
 
 if __name__ == '__main__':
@@ -67,13 +45,12 @@ if __name__ == '__main__':
     deg_stentoft = 9
     option_type = 'PUT'
     eur_amr = 'AMR'
-    alpha = 0.5
-    vol_mult = 1.0
+    alpha = 25.0
 
     rep = 1
 
     # Variables to vary
-    N = 10000
+    N = 16384
 
     # Auxiliary variables
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
@@ -108,8 +85,13 @@ if __name__ == '__main__':
     V = np.full_like(S, np.nan)  # Value-process of our hedge portfolio (excluding what we sold)
 
     # Find initial hedge
+    x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
+    gbm_isd = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, use_av=True, seed=seed)
+    gbm_isd.sim_exact()
+    lsmc = LSMC(simulator=gbm_isd, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
+    lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg_lsmc)
 
-    a[0, :] = diff_reg_fit_predict(x=np.array([x0]), t=t, N=N, r=r, sigma=sigma, K=K, eeb=eeb, option_type=option_type)[1]
+    a[0, :] = letourneau_fit_predict(lsmc=lsmc, x=S[0, :], x0=K, deg_stentoft=deg_stentoft)[1]
     b[0, :] = binom[0] - a[0, :] * S[0, :]
     V[0, :] = b[0, :] + a[0, :] * S[0, :]
 
@@ -130,7 +112,7 @@ if __name__ == '__main__':
 
         # Update positions
         V[j, :] = a[j - 1, :] * S[j, :] + b[j - 1, :] * np.exp(dt * r)
-        a[j, :] = diff_reg_fit_predict(x=S[j, :], t=t, N=N, r=r, sigma=sigma, K=K, eeb=eeb, option_type=option_type)[1]
+        a[j, :] = letourneau_fit_predict(lsmc=lsmc, x=S[j, :], x0=K, deg_stentoft=deg_stentoft)[1]
         a[j, :] = np.array([a if alive[i] else 0.0 for i, a in enumerate(a[j, :])])
         b[j, :] = V[j, :] - a[j, :] * S[j, :]
 
