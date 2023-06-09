@@ -46,18 +46,20 @@ if __name__ == '__main__':
     option_type = 'PUT'
     eur_amr = 'AMR'
     alpha = 25.0
+    N = 10000
+    N_train = 16384
 
     rep = 1
 
     # Variables to vary
-    N = 16384
+
 
     # Auxiliary variables
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
     dt = T / M
 
     # Simulate stock paths
-    gbm = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=False, seed=5)
+    gbm = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=False, seed=seed)
     gbm.sim_exact()
     S = gbm.X
 
@@ -86,7 +88,7 @@ if __name__ == '__main__':
 
     # Find initial hedge
     x_isd = ISD(N=N, x0=x0, alpha=alpha, seed=seed)
-    gbm_isd = GBM(t=t, x0=x_isd, N=N, mu=r, sigma=sigma, use_av=True, seed=seed)
+    gbm_isd = GBM(t=t, x0=x_isd, N=N_train, mu=r, sigma=sigma, use_av=True, seed=seed)
     gbm_isd.sim_exact()
     lsmc = LSMC(simulator=gbm_isd, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
     lsmc.run_backwards(fit_func=fit_poly, pred_func=pred_poly, deg=deg_lsmc)
@@ -103,8 +105,8 @@ if __name__ == '__main__':
     for j, s in tqdm(enumerate(t[1:], start=1)):
 
         # Perform simulations necessary for determining delta
-        x_isd = ISD(N=N, x0=K, alpha=alpha)
-        gbm_isd = GBM(t=t[j:], x0=x_isd, N=N, mu=r, sigma=sigma, use_av=True)
+        x_isd = ISD(N=N_train, x0=K, alpha=alpha)
+        gbm_isd = GBM(t=t[j:], x0=x_isd, N=N_train, mu=r, sigma=sigma, use_av=True)
         gbm_isd.sim_exact()
 
         lsmc = LSMC(simulator=gbm_isd, K=K, r=r, payoff_func=european_payoff, option_type=option_type)
@@ -137,7 +139,7 @@ if __name__ == '__main__':
     df = np.array([np.exp(-r*t[j]) for j in tau_idx])
 
     # Calculate present value of PnL for each path
-    pnl = df * (v) - p
+    pnl = df * (v - p)
 
     print('mean={:.4f}, std={:.4f}, rmse={:.4f}'.format(np.mean(pnl), np.std(pnl), np.sqrt(np.mean(pnl**2))))
 
