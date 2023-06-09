@@ -8,6 +8,8 @@ from application.simulation.sim_gbm import GBM
 from application.Longstaff_Schwartz.LSMC import LSMC
 from application.utils.LSMC_fit_predict import fit_poly, pred_poly
 from application.options.payoff import european_payoff
+from application.models.neural_approximator import *
+from application.Longstaff_Schwartz.dataset_generator import gen_LSMC_pathwise_data
 
 
 def simulate_pathwise_data(t, N, r, sigma, K, option_type, vol_mult=1.0):
@@ -33,15 +35,19 @@ def simulate_pathwise_data(t, N, r, sigma, K, option_type, vol_mult=1.0):
     return spot.reshape(-1, 1), payoff.reshape(-1, 1), delta.reshape(-1, 1)
 
 
-def diff_reg_fit_predict(x, t, N_train, r, sigma, K, option_type, deg=9, alpha=0.5, vol_mult=1.0):
-    # Generate pathwise samples
+def nn_fit_predict(x, t, N_train, r, sigma, K, option_type, epochs=100):
+    # generate pathwise training data from LSMC
     x_train, y_train, z_train = simulate_pathwise_data(t, N_train, r, sigma, K, option_type, vol_mult=vol_mult)
+    # Initialize regressor
+    regressor = Neural_approximator(x_raw=x_train, y_raw=y_train, dydx_raw=z_train)
+    # Prepare network, True for differentials
+    regressor.prepare(N_train, differential=True, weight_seed=None)
+    # Train network
+    regressor.train('differential', epochs=epochs)
+    # Predict on spot
+    predictions, deltas = regressor.predict_values_and_derivs(x)
 
-    diff_reg = DifferentialRegression(degree=deg, alpha=alpha)
-    diff_reg.fit(x_train, y_train, z_train)
-    price, delta = diff_reg.predict(x.reshape(-1, 1), predict_derivs=True)
-
-    return price.reshape(len(x), ), delta.reshape(len(x), )
+    return predictions[:, 0], deltas[:, 0]
 
 
 if __name__ == '__main__':
@@ -103,29 +109,23 @@ if __name__ == '__main__':
     V = np.full_like(S, np.nan)  # Value-process of our hedge portfolio (excluding what we sold)
 
     # Find initial hedge
-
     a[0, :] = np.minimum(delta_ub, np.maximum(
-        delta_lb, diff_reg_fit_predict(x=np.array([x0]), t=t, N_train=N_train, r=r, sigma=sigma, K=K, option_type=option_type)[1]
+        delta_lb,
+        nn_fit_predict(x=np.array(x0).reshape(-1, 1), t=t, N_train=N_train, r=r, sigma=sigma, K=K, option_type=option_type)[1]
     ))
     b[0, :] = binom[0] - a[0, :] * S[0, :]
     V[0, :] = b[0, :] + a[0, :] * S[0, :]
 
     alive = S[0, :] > eeb[0]
     exercise = np.full_like(S, False, dtype=bool)
-
     pnl = np.full(N, np.nan)
 
     for j, s in tqdm(enumerate(t[1:], start=1)):
 
-        # Perform simulations necessary for determining delta
-        x_isd = ISD(N=N, x0=K, alpha=alpha)
-        gbm_isd = GBM(t=t[j:], x0=x_isd, N=N, mu=r, sigma=sigma, use_av=True)
-        gbm_isd.sim_exact()
-
         # Update positions
         V[j, :] = a[j - 1, :] * S[j, :] + b[j - 1, :] * np.exp(dt * r)
         a[j, :] = np.minimum(delta_ub, np.maximum(
-            delta_lb, diff_reg_fit_predict(x=S[j, :], t=t[j:], N_train=N_train, r=r, sigma=sigma, K=K, option_type=option_type)[1]
+            delta_lb, nn_fit_predict(x=S[j, :].reshape(-1 ,1), t=t[j:], N_train=N_train, r=r, sigma=sigma, K=K, option_type=option_type)[1]
         ))
         a[j, :] = np.array([a if alive[i] else 0.0 for i, a in enumerate(a[j, :])])
         b[j, :] = V[j, :] - a[j, :] * S[j, :]

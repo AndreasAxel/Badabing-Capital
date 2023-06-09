@@ -482,7 +482,7 @@ class Neural_approximator():
 
 if __name__ == '__main__':
     # Param setting
-    seed = None
+    seed = 1234
     sizeTrain = 99999 # Plot predictions for each training number
     sizeTest = 1000           # Number of test observations used for predictions
     spot_cutoff = False
@@ -524,15 +524,15 @@ if __name__ == '__main__':
 
     predvalues = {}
     preddeltas = {}
-    sizes = [1024, 4096*2]
+    sizes = [0, 0.5, 1, 3]
     epochs = 100
-    weightSeed = 12346
+    weightSeed = 1234
     deltidx = 0
 
     for size in sizes:
 
         print(size)
-        regressor.prepare(size, False, weight_seed=weightSeed) # Don't set differentials
+        regressor.prepare(55512, False, weight_seed=weightSeed) # Don't set differentials
         t0 = time.time()
         regressor.train("standard training", epochs=epochs)
         predictions, deltas = regressor.predict_values_and_derivs(x_test)
@@ -540,7 +540,7 @@ if __name__ == '__main__':
         preddeltas[("standard", size)] = deltas[:, deltidx]
         t1 = time.time()
 
-        regressor.prepare(size, True, weight_seed=weightSeed) # Set differentials
+        regressor.prepare(55512, True, weight_seed=weightSeed, lam=size) # Set differentials
         t0 = time.time()
         regressor.train("differential training", epochs=epochs)
         predictions, deltas = regressor.predict_values_and_derivs(x_test)
@@ -567,10 +567,12 @@ if __name__ == '__main__':
         fig.set_size_inches(4 * numCols + 1.5, 4 * numRows)
 
         for i, size in enumerate(sizes):
+            """
             ax[i, 0].annotate("size %d" % size, xy=(0, 0.5),
                               xytext=(-ax[i, 0].yaxis.labelpad - 5, 0),
                               xycoords=ax[i, 0].yaxis.label, textcoords='offset points',
                               ha='right', va='center')
+            """
 
         ax[0, 0].set_title("Standard Neural Network")
         ax[0, 1].set_title("Differential Neural Network")
@@ -587,14 +589,15 @@ if __name__ == '__main__':
                 else:
                     t = xAxisName
 
-                ax[i, j].set_xlabel(t)
+                #ax[i, j].set_xlabel(t)
                 ax[i, j].set_ylabel(yAxisName)
 
                 ax[i, j].plot(xAxis, predictions[(regType, size)], 'bo',
-                              markersize=2, markerfacecolor='white', label="Predicted")
-                ax[i, j].plot(xAxis, targets, 'r.', markersize=0.5, label='Binomial Model')
+                              markersize=2, markerfacecolor='white', label=t)
+                ax[i, j].plot(xAxis, targets, 'r.', markersize=0.5)
 
-                ax[i, j].legend(prop={'size': 8}, loc='upper left')
+                #ax[i, j].legend(prop={'size': 8}, loc='upper left')
+                ax[i, j].legend(prop={'size': 8}, markerscale=0.0, frameon=False)
 
         plt.tight_layout()
         plt.subplots_adjust(top=0.9)
@@ -603,6 +606,7 @@ if __name__ == '__main__':
         plt.show()
 
 
+    """
     # Show payoff predictions
     graph(title=" ",
           predictions=predvalues,
@@ -616,7 +620,7 @@ if __name__ == '__main__':
           save=False,
           name="nnPrice"
           )
-
+    
 
     # Show predicted deltas
     graph(title=" ",
@@ -631,7 +635,7 @@ if __name__ == '__main__':
           save=False,
           name="nnDelta"
           )
-
+    """
 
     def plot_performance(predictedVals, predictedDeltas, save=False, savePath=None, figName=None):
         fig, ax = plt.subplots(2, 2, squeeze=False)
@@ -664,13 +668,26 @@ if __name__ == '__main__':
             plt.savefig(savePath + figName + '.png', dpi=400)
         plt.show()
 
-
+    """
     plot_performance(predictedVals=predvalues[("differential", size)],
                      predictedDeltas=preddeltas[("differential", size)],
                      save=False,
                      savePath='/Users/sebastianhansen/Documents/UNI/PUK/',
                      figName='nnPerfomance'
                      )
+    """
 
-
+    plt.plot(x_test, preddeltas[("differential", 0.0)] - z_test.reshape(-1), 'bo',
+             markersize=4, alpha=0.5, markerfacecolor='white', label=r"$\lambda=0.0$, RMSE={}".format(np.sqrt(np.mean( (preddeltas[("differential", 0.0)] - z_test.reshape(-1))**2)).round(3)))
+    plt.plot(x_test, preddeltas[("differential", 0.5)] - z_test.reshape(-1), 'o', color='black',
+             markersize=4, alpha=0.5, markerfacecolor='white', label=r"$\lambda=0.5$, RMSE={}".format(np.sqrt(np.mean( (preddeltas[("differential", 0.5)] - z_test.reshape(-1))**2)).round(3)))
+    plt.plot(x_test, preddeltas[("differential", 1)] - z_test.reshape(-1), 'o', color='darkgreen',
+             markersize=4, alpha=0.5,markerfacecolor='white', label=r"$\lambda=1$, RMSE={}".format(np.sqrt(np.mean( (preddeltas[("differential", 1)] - z_test.reshape(-1))**2)).round(3)))
+    plt.plot(x_test, preddeltas[("differential", 3)] - z_test.reshape(-1), 'o', color='springgreen',
+             markersize=4, alpha=0.5, markerfacecolor='white', label=r"$\lambda=3$, RMSE={}".format(np.sqrt(np.mean( (preddeltas[("differential", 3)] - z_test.reshape(-1))**2)).round(3)))
+    plt.plot(x_test, z_test.reshape(-1) - z_test.reshape(-1),
+                      'r.', markersize=0.5)
+    plt.legend()
+    plt.savefig('/Users/sebastianhansen/Documents/UNI/PUK/' + 'nnRegul.png', dpi=400)
+    plt.show()
 
