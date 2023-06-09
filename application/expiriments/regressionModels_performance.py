@@ -9,16 +9,16 @@ if __name__ == '__main__':
     # Param setting
     degree = 9
     alpha_differential_regression = [0.00, 0.5, 1.00]
-    seed = 1234
-    sizeTrain = 99999 # Plot predictions for each training number
-    sizeTest = 1000          # Number of test observations used for predictions
+    seed = 12345
+    sizeTrain = 4096 # Plot predictions for each training number
+    sizeTest = 5000          # Number of test observations used for predictions
     spot_cutoff = False     # For important sampling
 
     # Load generated, pathwise data
     pathwisePath = get_data_path("LSMC_pathwise_ISD.csv")
     dataPathwise = np.genfromtxt(pathwisePath, delimiter=",", skip_header=0)
     # Assigning datastructures
-    dataPathwise = resample(dataPathwise, n_samples=len(dataPathwise), random_state=seed)
+    dataPathwise = resample(dataPathwise, n_samples=sizeTrain, random_state=seed)
     """
     # resampled entire data to be sure cropping works
     # assigning datastructures
@@ -72,39 +72,40 @@ if __name__ == '__main__':
     # Plot results
 
     def plot_performance(x_test, predictedVals, predictedDeltas, save=False, savePath=None, figName=None):
-        fig, ax = plt.subplots(2, 2)
+        fig, ax = plt.subplots(2, 2, sharex='all')
         fig.set_size_inches(4 * 2 + 1.5, 4 * 2)
         ax[0, 0].set_title("Price")
         ax[0, 1].set_title("Delta")
 
-        ax[0, 0].plot(x_test, predictedVals[0],  label="α=0.0")
-        #ax[0, 0].plot(x_test, predictedVals[1], linestyle='solid', color = 'purple', markersize=2, markerfacecolor='white', label="α=0.5")
-        #ax[0, 0].plot(x_test, predictedVals[2], '.', color = 'orange', markersize=2, markerfacecolor='white', label="α=1.0")
-        #ax[0, 0].plot(x_test, y_test,'.', color = 'red', markersize=0.5, label='Binomial Model')
-        ax[0, 0].legend(prop={'size': 8}, loc='upper left')
+        ax[0, 0].plot(x_test, predictedVals[0], linestyle='solid', color = 'blue', markersize=2, markerfacecolor='white', label="α=0.0")
+        ax[0, 0].plot(x_test, predictedVals[1], linestyle='solid', color = 'black', markersize=2, markerfacecolor='white', label="α=0.5")
+        ax[0, 0].plot(x_test, predictedVals[2], linestyle='solid', color = 'springgreen', markersize=2, markerfacecolor='white', label="α=1.0")
+        ax[0, 0].plot(x_test, y_test, linestyle='solid', color = 'red', markersize=0.5, label='Binomial Model')
+        #ax[0, 0].legend(prop={'size': 8}, loc='upper left')
 
-        ax[0, 1].plot(x_test, predictedDeltas[0], 'bo', markersize=2, markerfacecolor='white', label="α=0.0")
-        ax[0, 1].plot(x_test, predictedDeltas[1], 'bo', markersize=2, markerfacecolor='white', label="α=0.5")
-        ax[0, 1].plot(x_test, predictedDeltas[2], 'bo', markersize=2, markerfacecolor='white', label="α=1.0")
-        ax[0, 1].plot(x_test, z_test, 'r.', markersize=0.5, label='Binomial Model')
-        ax[0, 1].legend(prop={'size': 8}, loc='upper left')
+        ax[0, 1].plot(x_test, predictedDeltas[0], linestyle='solid', color = 'blue', markersize=2, markerfacecolor='white')
+        ax[0, 1].plot(x_test, predictedDeltas[1], linestyle='solid', color = 'black', markersize=2, markerfacecolor='white')
+        ax[0, 1].plot(x_test, predictedDeltas[2], linestyle='solid', color = 'springgreen', markersize=2, markerfacecolor='white')
+        ax[0, 1].plot(x_test, z_test, linestyle='solid', color = 'red', markersize=0.5)
+        #ax[0, 1].legend(prop={'size': 8}, loc='upper left')
 
-        ax[1, 0].plot(x_test, predictedVals[0] - y_test, 'bo', markersize=2, markerfacecolor='white', label="Predicted")
-        ax[1, 0].plot(x_test, predictedVals[1] - y_test, 'bo', markersize=2, markerfacecolor='white', label="Predicted")
-        ax[1, 0].plot(x_test, predictedVals[2] - y_test, 'bo', markersize=2, markerfacecolor='white', label="Predicted")
-        ax[1, 0].plot(x_test, y_test - y_test, 'r.', markersize=0.5, label='Binomial Model')
+        ax[1, 0].plot(x_test, predictedVals[0] - y_test, linestyle='solid', color = 'blue', markersize=2, markerfacecolor='white')
+        ax[1, 0].plot(x_test, predictedVals[1] - y_test, linestyle='solid', color = 'black', markersize=2, markerfacecolor='white')
+        ax[1, 0].plot(x_test, predictedVals[2] - y_test, linestyle='solid', color = 'springgreen', markersize=2, markerfacecolor='white')
+        ax[1, 0].plot(x_test, y_test - y_test, linestyle='solid', color = 'red', markersize=0.5)
 
-        ax[1, 1].plot(x_test, predictedDeltas[0] - z_test, 'bo', markersize=2, markerfacecolor='white', label="Predicted")
-        ax[1, 1].plot(x_test, predictedDeltas[1] - z_test, 'bo', markersize=2, markerfacecolor='white', label="Predicted")
-        ax[1, 1].plot(x_test, predictedDeltas[2] - z_test, 'bo', markersize=2, markerfacecolor='white', label="Predicted")
-        ax[1, 1].plot(x_test, z_test.reshape(-1) - z_test.reshape(-1), 'r.', markersize=0.5)
+        ax[1, 1].plot(x_test, predictedDeltas[0] - z_test, linestyle='solid', color = 'blue', markersize=2, markerfacecolor='white')
+        ax[1, 1].plot(x_test, predictedDeltas[1] - z_test, linestyle='solid', color = 'black', markersize=2, markerfacecolor='white')
+        ax[1, 1].plot(x_test, predictedDeltas[2] - z_test, linestyle='solid', color = 'springgreen', markersize=2, markerfacecolor='white')
+        ax[1, 1].plot(x_test, z_test.reshape(-1) - z_test.reshape(-1), linestyle='solid', color = 'red', markersize=0.5)
+
+        fig.legend(loc='lower center',  ncol=4)
 
         plt.tight_layout()
-        plt.subplots_adjust(top=0.9)
+        plt.subplots_adjust(top=0.9, bottom=0.1)
         if save:
             plt.savefig(savePath + figName + '.png', dpi=400)
         plt.show()
-
 
     plot_performance(x_test=x_test,
                      predictedVals=[diffpred_0, diffpred_05, diffpred_1],
