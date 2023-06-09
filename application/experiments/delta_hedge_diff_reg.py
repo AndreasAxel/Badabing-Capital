@@ -53,7 +53,7 @@ if __name__ == '__main__':
     r = 0.06
     sigma = 0.2
     K = 40.0
-    seed = 1234
+    seed = None
     deg_lsmc = 9
     deg_stentoft = 9
     option_type = 'PUT'
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     delta_ub = 0.0   # Set this to np.inf if unbounded
 
     # Variables to vary
-    N_train = 4096
+    N_train = 2048*4**2
     print(N_train)
 
     # Auxiliary variables
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     dt = T / M
 
     # Simulate stock paths
-    gbm = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=False, seed=seed)
+    gbm = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=True, seed=seed)
     gbm.sim_exact()
     S = gbm.X
 
@@ -86,6 +86,7 @@ if __name__ == '__main__':
     binom_eeb[np.isnan(binom_eeb)] = np.nanmin(binom_eeb)
     eeb = binom_eeb[[int(5000 / T * s) for s in t]]
 
+    """
     plt.plot(np.linspace(start=0.0, stop=T, num=5000 + 1, endpoint=True), binom_eeb, color='red', label='EEB (M=5000)')
     plt.plot(t, eeb, color='black', label='EEB (M={})'.format(M))
     plt.plot(t, S[:, :100], color='blue', alpha=0.1)
@@ -94,6 +95,7 @@ if __name__ == '__main__':
     plt.xlabel('t')
     plt.ylabel('')
     plt.show()
+    """
 
     # Initialize experiment
 
