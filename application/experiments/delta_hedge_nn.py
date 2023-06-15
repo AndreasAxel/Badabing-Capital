@@ -151,8 +151,8 @@ if __name__ == '__main__':
     df = np.array([np.exp(-r*t[j]) for j in tau_idx])
 
     # Calculate present value of PnL for each path
-    pnl = df * (v - p
-                )
+    pnl = df * (v - p)
+
     print('mean={:.4f}, std={:.4f}, rmse={:.4f}'.format(np.mean(pnl), np.std(pnl), np.sqrt(np.mean(pnl**2))))
 
     plt.hist(pnl, bins=100, density=True, label='mean = {:.4f}, std. dev. = {:.4f}'.format(np.mean(pnl), np.std(pnl)))
