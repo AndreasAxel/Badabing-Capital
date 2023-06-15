@@ -144,9 +144,7 @@ if __name__ == '__main__':
     print('mean={:.4f}, std={:.4f}, rmse={:.4f}'.format(np.mean(pnl), np.std(pnl), np.sqrt(np.mean(pnl**2))))
 
     plt.hist(pnl, bins=100, density=True,
-             label='mean = {:.4f}, std. dev. = {:.4f}, rmse = {:.4f}'.format(np.mean(pnl),
-                                                                             np.std(pnl),
-                                                                             np.sqrt(np.mean(pnl ** 2))))
+             label='mean = {:.4f}, std. dev. = {:.4f}'.format(np.mean(pnl), np.std(pnl)))
     plt.axvline(x=np.mean(pnl), ls='--', color='red')
     #plt.title('Density of Hedge Error (PnL)')
     plt.legend(markerscale=0.0, prop={'size': 8}, loc='lower center')

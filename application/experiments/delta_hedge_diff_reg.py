@@ -53,7 +53,7 @@ if __name__ == '__main__':
     r = 0.06
     sigma = 0.2
     K = 40.0
-    seed = None
+    seed = 1234
     deg_lsmc = 9
     deg_stentoft = 9
     option_type = 'PUT'
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     delta_ub = 0.0   # Set this to np.inf if unbounded
 
     # Variables to vary
-    N_train = 2048*4**2
+    N_train = 4096
     print(N_train)
 
     # Auxiliary variables
@@ -152,9 +152,7 @@ if __name__ == '__main__':
     print('mean={:.4f}, std={:.4f}, rmse={:.4f}'.format(np.mean(pnl), np.std(pnl), np.sqrt(np.mean(pnl**2))))
 
     plt.hist(pnl, bins=100, density=True,
-             label='mean = {:.4f}, std. dev. = {:.4f}, rmse = {:.4f}'.format(np.mean(pnl),
-                                                                             np.std(pnl),
-                                                                             np.sqrt(np.mean(pnl ** 2))))
+             label='mean = {:.4f}, std. dev. = {:.4f}'.format(np.mean(pnl), np.std(pnl)))
     plt.axvline(x=np.mean(pnl), ls='--', color='red')
     #plt.title('Density of Hedge Error (PnL)')
     plt.legend(markerscale=0.0, prop={'size': 8}, loc='lower center')
