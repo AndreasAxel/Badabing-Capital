@@ -134,8 +134,8 @@ if __name__ == '__main__':
     export_filepath = get_data_path('NN_choos_epoch.csv')
     df_export.to_csv(export_filepath, float_format='%.4f')
 
-    #df_summary_price.to_csv('/Users/sebastianhansen/Documents/UNI/PUK/nntablePrice.csv', float_format='%.4f')
-    #df_summary_delta.to_csv('/Users/sebastianhansen/Documents/UNI/PUK/nntableDelta.csv', float_format='%.4f')
+    #df_summary_price.to_csv(export_path, float_format='%.4f')
+    #df_summary_delta.to_csv('export_path, float_format='%.4f')
 
 
 
@@ -150,90 +150,4 @@ if __name__ == '__main__':
 
 
 
-
-
-
-    """
-    # ------------------------------------- #
-    # Analysis of Letourneau & Stentoft     #
-    # ------------------------------------- #
-
-    # RMSE initialization
-    mse_price = np.zeros((len(deg_polynomial), num_models), dtype=np.float64)
-    mse_delta = np.zeros((len(deg_polynomial), num_models), dtype=np.float64)
-
-    # Create figures
-    fig, ax = plt.subplots(nrows=len(deg_polynomial), ncols=2, sharex='col')
-    ax[0, 0].set_title('Price')
-    ax[0, 1].set_title('Delta')
-    ax[len(deg_polynomial) - 1, 0].set_xlabel('Spot')
-    ax[len(deg_polynomial) - 1, 1].set_xlabel('Spot')
-
-    for i, degree in tqdm(enumerate(deg_polynomial)):
-
-        # Fit regression models for price and delta
-        # Ridge regression
-        ridgereg = make_ridge_cv(degree=degree)
-        ridgereg.fit(x_train, y_train)
-        ridgecoef = ridgereg['ridgecv'].coef_[0] #predict(x_test)
-        ridgepred = ridgereg.predict(x_test) # price
-        z_pred_ridge = np.polyder(ridgecoef, 1) # delta
-        alpha_ridge = ridgereg['ridgecv'].alpha_
-
-        # Differential regression
-        # only prices i.e. for alpha = 0
-        diffreg_0 = DifferentialRegression(degree=degree, alpha=alpha_differential_regression[0])
-        diffreg_0.fit(x_train, y_train, z_train)
-        diffpred_0, z_pred_0 = diffreg_0.predict(x_test, predict_derivs=True)
-
-        # half prices half deltas i.e. alpha = 0.5
-        diffreg_05 = DifferentialRegression(degree=degree, alpha=alpha_differential_regression[1])
-        diffreg_05.fit(x_train, y_train, z_train)
-        diffpred_05, z_pred_05 = diffreg_05.predict(x_test, predict_derivs=True)
-
-        # only deltas i.e. alpha = 1
-        diffreg_1 = DifferentialRegression(degree=degree, alpha=alpha_differential_regression[2])
-        diffreg_1.fit(x_train, y_train, z_train)
-        diffpred_1, z_pred_1 = diffreg_1.predict(x_test, predict_derivs=True)
-
-        # Calculate mse for prices and delta
-        mse_price[i] = [np.mean((ridgepred - y_test)**2), np.mean((diffpred_0 - y_test)**2), np.mean((diffpred_05 - y_test)**2), np.mean((diffpred_1 - y_test)**2)]
-        mse_delta[i] = [np.mean((z_pred_ridge - z_test) ** 2), np.mean((z_pred_0 - z_test) ** 2), np.mean((z_pred_05 - z_test) ** 2), np.mean((z_pred_1 - z_test) ** 2)]
-
-        # Add subplot for price
-        ax[i, 0].scatter(x_train, y_train, marker='x', color='cyan', s=2, alpha=0.5, label='train')
-        ax[i, 0].scatter(x_test, y_test, marker='o', color='red', s=2, alpha=0.5, label="true")
-        ax[i, 0].scatter(x_test, ridgepred, marker='o', color='pink', s=2, alpha=0.5,
-                         label='diff. reg. α={:.2f}'.format(alpha_ridge) + ' RMSE={:.2E}'.format(mse_price[i][0]))
-        ax[i, 0].scatter(x_test, diffpred_0, marker='o', color='blue', s=2, alpha=0.5,
-                    label='diff. reg. α={:.2f}' .format(alpha_differential_regression[0]) + ' RMSE={:.2E}'.format(mse_price[i][1]))
-        ax[i, 0].scatter(x_test, diffpred_05, marker='o', color='purple', s=2, alpha=0.5,
-                    label='diff. reg. α={:.2f}' .format(alpha_differential_regression[1]) + ' RMSE={:.2E}'.format(mse_price[i][2]))
-        ax[i, 0].scatter(x_test, diffpred_1, marker='o', color='orange', s=2, alpha=0.5,
-                    label='diff. reg. α={:.2f}' .format(alpha_differential_regression[2]) + ' RMSE={:.2E}'.format(mse_price[i][3]))
-
-
-        # add subplots for deltas
-        ax[i, 1].scatter(x_train, z_train, marker='o', color='cyan', s=2, alpha=0.5, label='train')
-        ax[i, 1].scatter(x_test, z_test, marker='o', color='red', s=2, alpha=0.5, label="true")
-        ax[i, 1].scatter(x_test, z_pred_0, marker='o', color='pink', s=2, alpha=0.5,
-                         label='diff. reg. α={:.2f}'.format(alpha_ridge) + ' RMSE={:.2E}'.format(mse_delta[i][0]))
-        ax[i, 1].scatter(x_test, z_pred_0, marker='o', color='blue', s=2, alpha=0.5,
-                    label='diff. reg. α={:.2f}'.format(alpha_differential_regression[0]) + ' RMSE={:.2E}'.format(mse_delta[i][1]))
-        ax[i, 1].scatter(x_test, z_pred_05, marker='o', color='purple', s=2, alpha=0.5,
-                    label='diff. reg. α={:.2f}'.format(alpha_differential_regression[1]) + ' RMSE={:.2E}'.format(mse_delta[i][2]))
-        ax[i, 1].scatter(x_test, z_pred_1, marker='o', color='orange', s=2, alpha=0.5,
-                    label='diff. reg. α={:.2f}'.format(alpha_differential_regression[2]) + ' RMSE={:.2E}'.format(mse_delta[i][3]))
-
-        # formatting
-        ax[i, 0].set_ylabel('deg={}'.format(degree))
-        ax[i, 0].legend()
-        ax[i, 1].legend()
-        # ax[i, 0].set_xlim(0.8 * np.min(x_test), 1.2 * np.max(x_test))
-        # ax[i, 0].set_ylim(-0.2, 1.2 * np.max(binom_price))
-        # ax[i, 0].text(60, (-0.2 + 1.2 * np.max(binom_price)) / 2, 'MSE = {:.2E}'.format(mse_price[i]))
-
-    plt.show()
-
-        """
 
