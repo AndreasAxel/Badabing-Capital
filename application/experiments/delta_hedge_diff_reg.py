@@ -75,7 +75,7 @@ if __name__ == '__main__':
     dt = T / M
 
     # Simulate stock paths
-    gbm = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=False, seed=seed)
+    gbm = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=True, seed=seed)
     gbm.sim_exact()
     S = gbm.X
 
@@ -86,6 +86,7 @@ if __name__ == '__main__':
     binom_eeb[np.isnan(binom_eeb)] = np.nanmin(binom_eeb)
     eeb = binom_eeb[[int(5000 / T * s) for s in t]]
 
+    """
     plt.plot(np.linspace(start=0.0, stop=T, num=5000 + 1, endpoint=True), binom_eeb, color='red', label='EEB (M=5000)')
     plt.plot(t, eeb, color='black', label='EEB (M={})'.format(M))
     plt.plot(t, S[:, :100], color='blue', alpha=0.1)
@@ -94,6 +95,7 @@ if __name__ == '__main__':
     plt.xlabel('t')
     plt.ylabel('')
     plt.show()
+    """
 
     # Initialize experiment
 
@@ -150,9 +152,7 @@ if __name__ == '__main__':
     print('mean={:.4f}, std={:.4f}, rmse={:.4f}'.format(np.mean(pnl), np.std(pnl), np.sqrt(np.mean(pnl**2))))
 
     plt.hist(pnl, bins=100, density=True,
-             label='mean = {:.4f}, std. dev. = {:.4f}, rmse = {:.4f}'.format(np.mean(pnl),
-                                                                             np.std(pnl),
-                                                                             np.sqrt(np.mean(pnl ** 2))))
+             label='mean = {:.4f}, std. dev. = {:.4f}'.format(np.mean(pnl), np.std(pnl)))
     plt.axvline(x=np.mean(pnl), ls='--', color='red')
     #plt.title('Density of Hedge Error (PnL)')
     plt.legend(markerscale=0.0, prop={'size': 8}, loc='lower center')
