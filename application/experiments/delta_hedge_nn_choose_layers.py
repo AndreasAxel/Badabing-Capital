@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from joblib import Parallel, delayed
+from tqdm import tqdm
 from application.binomial_model.binomial_model import binomial_tree_bs
 from application.simulation.sim_gbm import GBM
 from application.Longstaff_Schwartz.LSMC import LSMC
@@ -74,12 +74,11 @@ if __name__ == '__main__':
 
     # Variables to vary
     lambda_ = np.array([0.0, 1.0])                  # Regularization (MSE of price only, MSE of price and delta)
-    hidden_layers = np.array(range(1, 6))           # Number of hidden layers
+    hidden_layers = np.array(range(1, 6), dtype=int)           # Number of hidden layers
     N_train = np.array([128*2**i for i in range(7)])
 
-    param = list(zip(hidden_layers, lambda_))
-
     # Auxiliary variables
+    param = np.array([(hl, lam) for hl in hidden_layers for lam in lambda_])
     t = np.linspace(start=t0, stop=T, num=M + 1, endpoint=True)
     dt = T / M
 
@@ -107,7 +106,7 @@ if __name__ == '__main__':
     
             alive = S[0, :] > eeb[0]
             exercise = np.full_like(S, False, dtype=bool)
-    
+
             # Differential Neural Network
             a = np.full_like(S, np.nan)
             b = np.full_like(S, np.nan)
@@ -163,13 +162,13 @@ if __name__ == '__main__':
             # Update results
             hedge_err_std[k] = np.std(pnl)
 
-        return {'HIDDEN_LAYERS': hidden_layers, 'LAMBDA': lambda_, 'STD_HEDGE_ERR': hedge_err_std}
+        return {'HIDDEN_LAYERS': hl, 'LAMBDA': lam, 'STD_HEDGE_ERR': hedge_err_std}
 
-    out = Parallel(n_jobs=-1)(
-        delayed(hedge_expirement)(hl, lam) for (hl, lam) in param
-    )
+    res = []
+    for (hl, lam) in tqdm(param):
+        res.append(hedge_expirement(int(hl), lam))
 
-    df = pd.concat([pd.DataFrame(x) for x in out]).reset_index().rename(columns={'index': 'N_TRAIN'})
+    df = pd.concat([pd.DataFrame(x) for x in res]).reset_index().rename(columns={'index': 'N_TRAIN'})
     df['N_TRAIN'] = N_train[df['N_TRAIN']]
 
     # ----------------------------------------- #
