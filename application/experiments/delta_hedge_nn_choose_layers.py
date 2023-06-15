@@ -1,11 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from tqdm import tqdm
 from joblib import Parallel, delayed
 from application.binomial_model.binomial_model import binomial_tree_bs
-from application.models.LetourneauStentoft import ISD
-from application.models.regressionModels import DifferentialRegression
 from application.simulation.sim_gbm import GBM
 from application.Longstaff_Schwartz.LSMC import LSMC
 from application.utils.LSMC_fit_predict import fit_poly, pred_poly
@@ -169,7 +166,7 @@ if __name__ == '__main__':
         return {'HIDDEN_LAYERS': hidden_layers, 'LAMBDA': lambda_, 'STD_HEDGE_ERR': hedge_err_std}
 
     out = Parallel(n_jobs=-1)(
-        delayed(hedge_expirement)(hl, lam) for (hl, lam) in tqdm(param)
+        delayed(hedge_expirement)(hl, lam) for (hl, lam) in param
     )
 
     df = pd.concat([pd.DataFrame(x) for x in out]).reset_index().rename(columns={'index': 'N_TRAIN'})
