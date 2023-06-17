@@ -172,11 +172,12 @@ if __name__ == '__main__':
         plt.plot(N_train, df[(df['ALPHA'] == a) & (df['DEGREE'] == d)]['STD_HEDGE_ERR'],
                  color=color_alpha[a], marker='o')
         if a == 0.0:
-            plt.text(np.min(N_train)*0.8, df[(df['ALPHA'] == a) & (df['DEGREE'] == d)]['STD_HEDGE_ERR'].head(1)*0.925,
+            plt.text(np.min(N_train)*0.8,
+                     df[(df['ALPHA'] == a) & (df['DEGREE'] == d)]['STD_HEDGE_ERR'].head(1) * 1.025,
                      'DEG={}'.format(int(d)), color=color_alpha[a])
         else:
             plt.text(np.max(N_train) * 1.2,
-                     df[(df['ALPHA'] == a) & (df['DEGREE'] == d)]['STD_HEDGE_ERR'].tail(1),
+                     df[(df['ALPHA'] == a) & (df['DEGREE'] == d)]['STD_HEDGE_ERR'].tail(1) * np.abs(((-1)**(i+1) + 0.025)),
                      'DEG={}'.format(int(d)), color=color_alpha[a])
 
     plt.ylim(df['STD_HEDGE_ERR'].min()*0.8, df['STD_HEDGE_ERR'].max() * 1.2)
