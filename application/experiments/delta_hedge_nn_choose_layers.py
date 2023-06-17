@@ -10,7 +10,7 @@ from application.options.payoff import european_payoff
 from application.models.neural_approximator import Neural_approximator
 
 
-def simulate_pathwise_data(t, N, r, sigma, K, option_type, vol_mult=1.5):
+def simulate_pathwise_data(t, N, r, sigma, K, option_type, vol_mult=1.0):
     rng = np.random.default_rng()
     Z = rng.normal(loc=0.0, scale=1.0, size=N)
 
@@ -178,12 +178,21 @@ if __name__ == '__main__':
     color_lambda = {0.0: 'orange', 1.0: 'blue'}
 
     for i, (hl, lam) in enumerate(param):
+        print(i, (hl, lam))
         plt.plot(N_train, df[(df['HIDDEN_LAYERS'] == hl) & (df['LAMBDA'] == lam)]['STD_HEDGE_ERR'],
                  color=color_lambda[lam], marker='o')
+        if lam == 0.0:
+            plt.text(np.min(N_train)*0.9, df[(df['HIDDEN_LAYERS'] == hl) & (df['LAMBDA'] == lam)]['STD_HEDGE_ERR'].head(1)*1.025,
+                     'L={}'.format(int(hl)), color=color_lambda[lam])
 
-    plt.ylim(-0.1, np.max(df['STD_HEDGE_ERR'])*1.2)
+    plt.text(115, 0.55, 'L=1', color='blue')
+    plt.text(np.min(N_train)*0.9, 0.47, 'L=5', color='blue')
+    plt.ylim(df['STD_HEDGE_ERR'].min()*0.8, df['STD_HEDGE_ERR'].max()*1.2)
     plt.ylabel('STD( hedge error )')
     plt.xlabel('Training Samples')
     plt.semilogx(base=2)
     plt.xticks(ticks=N_train, labels=N_train)
+    plt.text(np.max(N_train)*0.5, df['STD_HEDGE_ERR'].max() * 1.15, 'N = {:,}'.format(N))
+    plt.text(np.min(N_train), df['STD_HEDGE_ERR'].max() * 1.15, 'Regularized NN (λ = 1.0)', color='blue')
+    plt.text(np.min(N_train), df['STD_HEDGE_ERR'].max() * 1.10, 'Classical NN      (λ = 0.0)', color='orange')
     plt.show()
