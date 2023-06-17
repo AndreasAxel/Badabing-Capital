@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
             for j, s in enumerate(t[1:], start=1):
                 V[j, :] = a[j - 1, :] * S[j, :] + b[j - 1, :] * np.exp(dt * r)
-                a[j, :] = diff_reg_fit_predict(x=S[j, :], t=t, N_train=n, r=r, sigma=sigma, K=K,
+                a[j, :] = diff_reg_fit_predict(x=S[j, :], t=t[j:], N_train=n, r=r, sigma=sigma, K=K,
                                                option_type=option_type, deg=deg, alpha=alpha)[1]
                 a[j, :] = np.minimum(delta_ub, np.maximum(delta_lb, a[j, :]))
                 a[j, :] = np.array([a if alive[i] else 0.0 for i, a in enumerate(a[j, :])])

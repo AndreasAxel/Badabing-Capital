@@ -32,7 +32,7 @@ def simulate_pathwise_data(t, N, r, sigma, K, option_type, vol_mult=1.0):
     return spot.reshape(-1, 1), payoff.reshape(-1, 1), delta.reshape(-1, 1)
 
 
-def diff_reg_fit_predict(x, t, N_train, r, sigma, K, option_type, deg, alpha=0.5, vol_mult=1.0):
+def diff_reg_fit_predict(x, t, N_train, r, sigma, K, option_type, deg, alpha, vol_mult=1.0):
     # Generate pathwise samples
     x_train, y_train, z_train = simulate_pathwise_data(t, N_train, r, sigma, K, option_type, vol_mult=vol_mult)
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     K = 40.0
     seed = 1234
     deg_lsmc = 9
-    deg_poly = 5
+    deg_poly = 7
     option_type = 'PUT'
     eur_amr = 'AMR'
     alpha = 0.5
@@ -107,7 +107,7 @@ if __name__ == '__main__':
 
     a[0, :] = np.minimum(delta_ub, np.maximum(
         delta_lb, diff_reg_fit_predict(x=np.array([x0]), t=t, N_train=N_train, r=r, sigma=sigma, K=K, option_type=option_type,
-                                       deg=deg_poly)[1]
+                                       deg=deg_poly, alpha=alpha)[1]
     ))
     b[0, :] = binom[0] - a[0, :] * S[0, :]
     V[0, :] = b[0, :] + a[0, :] * S[0, :]
@@ -122,8 +122,9 @@ if __name__ == '__main__':
         V[j, :] = a[j - 1, :] * S[j, :] + b[j - 1, :] * np.exp(dt * r)
         a[j, :] = np.minimum(delta_ub, np.maximum(
             delta_lb, diff_reg_fit_predict(x=S[j, :], t=t[j:], N_train=N_train, r=r, sigma=sigma, K=K, option_type=option_type,
-                                           deg=deg_poly)[1]
+                                           deg=deg_poly, alpha=alpha)[1]
         ))
+
         a[j, :] = np.array([a if alive[i] else 0.0 for i, a in enumerate(a[j, :])])
         b[j, :] = V[j, :] - a[j, :] * S[j, :]
 
