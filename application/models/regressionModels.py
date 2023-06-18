@@ -154,9 +154,9 @@ if __name__ == '__main__':
     # ------------------------------------------------- #
     # Parameter settings                                #
     # ------------------------------------------------- #
-    degree = 9
+    degree = 7
     alpha_differential_regression = [0.00, 0.5, 1.00]
-    sizeTrain = 4096
+    sizeTrain = 256 #4096
     sizeTest = 5000
     seedNo = 1234
     letourneau = False # include Letourneau comparison Delta prediction
