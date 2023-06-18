@@ -177,6 +177,7 @@ if __name__ == '__main__':
                                          option_type=option_type, eur_amr='AMR')
     print('BINOMIAL TREE:  Price = {:.4f}, Delta = {:.4f}'.format(price, delta))
 
+
     # Example of Early Exercise boundary
     x0 = np.linspace(20, 60, N, endpoint=True)
     simulator = GBM(t=t, x0=x0, N=N, mu=r, sigma=sigma, use_av=use_av, seed=seed)
